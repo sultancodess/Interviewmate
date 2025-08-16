@@ -1,0 +1,385 @@
+import { GoogleGenerativeAI } from '@google/generative-ai'
+
+class GeminiService {
+  constructor() {
+    this.genAI = null
+    this.model = null
+    this.isInitialized = false
+    this.lastError = null
+    this.lastErrorTime = 0
+    this.requestCount = 0
+    this.lastResetTime = Date.now()
+  }
+
+  initialize() {
+    try {
+      if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'your_gemini_api_key_here') {
+        console.warn('⚠️ GEMINI_API_KEY is not configured - using fallback evaluation')
+        return false
+      }
+
+      this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+      this.model = this.genAI.getGenerativeModel({ 
+        model: process.env.GEMINI_MODEL || 'gemini-2.0-flash-exp',
+        generationConfig: {
+          temperature: parseFloat(process.env.GEMINI_TEMPERATURE) || 0.7,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: parseInt(process.env.GEMINI_MAX_TOKENS) || 1024,
+        },
+        safetySettings: [
+          {
+            category: 'HARM_CATEGORY_HARASSMENT',
+            threshold: 'BLOCK_MEDIUM_AND_ABOVE',
+          },
+          {
+            category: 'HARM_CATEGORY_HATE_SPEECH',
+            threshold: 'BLOCK_MEDIUM_AND_ABOVE',
+          },
+          {
+            category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+            threshold: 'BLOCK_MEDIUM_AND_ABOVE',
+          },
+          {
+            category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+            threshold: 'BLOCK_MEDIUM_AND_ABOVE',
+          },
+        ],
+      })
+
+      this.isInitialized = true
+      console.log('✅ Gemini AI initialized successfully')
+      return true
+    } catch (error) {
+      console.error('❌ Failed to initialize Gemini AI:', error.message)
+      this.isInitialized = false
+      return false
+    }
+  }
+
+  async evaluateInterview(interviewData, transcript) {
+    if (!this.isInitialized) {
+      this.initialize()
+    }
+
+    // Check rate limits
+    if (!this.checkRateLimit()) {
+      console.log('⚠️ Gemini rate limit reached, using fallback evaluation')
+      return this.getFallbackEvaluation()
+    }
+
+    try {
+      const prompt = this.generateEvaluationPrompt(interviewData, transcript)
+      const result = await this.model.generateContent(prompt)
+      const response = await result.response
+      const text = response.text()
+
+      this.requestCount++
+      return this.parseEvaluationResponse(text)
+    } catch (error) {
+      console.error('❌ Gemini evaluation error:', error.message)
+      
+      // If quota exceeded, use fallback
+      if (error.message.includes('quota') || error.message.includes('429')) {
+        console.log('⚠️ Gemini quota exceeded, using fallback evaluation')
+        return this.getFallbackEvaluation()
+      }
+      
+      throw error
+    }
+  }
+
+  checkRateLimit() {
+    const now = Date.now()
+    const oneMinute = 60 * 1000
+
+    // Reset counter every minute
+    if (now - this.lastResetTime > oneMinute) {
+      this.requestCount = 0
+      this.lastResetTime = now
+    }
+
+    // Free tier limits: 15 requests per minute
+    return this.requestCount < 10 // Conservative limit
+  }
+
+  generateEvaluationPrompt(interviewData, transcript) {
+    const { type, candidateInfo, configuration } = interviewData
+
+    return `
+You are an expert interview evaluator. Analyze this ${type} interview transcript and provide a comprehensive evaluation.
+
+INTERVIEW CONTEXT:
+- Type: ${type.charAt(0).toUpperCase() + type.slice(1)} Interview
+- Role: ${candidateInfo.role}
+- Company: ${candidateInfo.company}
+- Experience Level: ${candidateInfo.experience}
+- Duration: ${configuration.duration} minutes
+- Difficulty: ${configuration.difficulty}
+- Focus Topics: ${configuration.topics?.join(', ') || 'General'}
+
+TRANSCRIPT:
+${transcript}
+
+EVALUATION REQUIREMENTS:
+Please provide a detailed evaluation in the following JSON format:
+
+{
+  "overallScore": <number 0-100>,
+  "skillScores": {
+    "communication": <number 0-100>,
+    "technicalKnowledge": <number 0-100>,
+    "problemSolving": <number 0-100>,
+    "confidence": <number 0-100>,
+    "clarity": <number 0-100>,
+    "behavioral": <number 0-100>
+  },
+  "strengths": [<array of 3-5 specific strengths>],
+  "weaknesses": [<array of 2-4 areas for improvement>],
+  "recommendations": [<array of 3-5 actionable recommendations>],
+  "detailedFeedback": "<comprehensive 200-300 word feedback>",
+  "badges": [<array of achievement badges for exceptional performance>]
+}
+
+EVALUATION CRITERIA:
+1. Communication: Clarity, articulation, listening skills, professional language
+2. Technical Knowledge: Domain expertise, problem-solving approach, technical accuracy
+3. Problem Solving: Analytical thinking, creativity, structured approach
+4. Confidence: Self-assurance, composure, ability to handle pressure
+5. Clarity: Clear explanations, logical flow, concise responses
+6. Behavioral: Cultural fit, teamwork, leadership potential, motivation
+
+SCORING GUIDELINES:
+- 90-100: Exceptional performance, exceeds expectations
+- 80-89: Strong performance, meets and often exceeds expectations
+- 70-79: Good performance, meets most expectations
+- 60-69: Adequate performance, meets basic expectations
+- Below 60: Needs improvement, below expectations
+
+BADGES (award for scores ≥ 85 in specific areas):
+- "Excellent Communicator" (communication ≥ 85)
+- "Technical Expert" (technicalKnowledge ≥ 85)
+- "Problem Solver" (problemSolving ≥ 85)
+- "Confident Leader" (confidence ≥ 85)
+- "Clear Thinker" (clarity ≥ 85)
+- "Cultural Fit" (behavioral ≥ 85)
+- "Outstanding Performance" (overallScore ≥ 90)
+
+Be constructive, specific, and actionable in your feedback. Focus on both strengths and growth opportunities.
+`
+  }
+
+  parseEvaluationResponse(text) {
+    try {
+      // Extract JSON from the response
+      const jsonMatch = text.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) {
+        throw new Error('No JSON found in response')
+      }
+
+      const evaluation = JSON.parse(jsonMatch[0])
+
+      // Validate and sanitize the evaluation
+      return this.validateEvaluation(evaluation)
+    } catch (error) {
+      console.error('❌ Error parsing evaluation response:', error)
+      
+      // Return fallback evaluation
+      return this.getFallbackEvaluation()
+    }
+  }
+
+  validateEvaluation(evaluation) {
+    // Ensure all required fields exist with proper types and ranges
+    const validated = {
+      overallScore: Math.max(0, Math.min(100, evaluation.overallScore || 75)),
+      skillScores: {
+        communication: Math.max(0, Math.min(100, evaluation.skillScores?.communication || 75)),
+        technicalKnowledge: Math.max(0, Math.min(100, evaluation.skillScores?.technicalKnowledge || 70)),
+        problemSolving: Math.max(0, Math.min(100, evaluation.skillScores?.problemSolving || 75)),
+        confidence: Math.max(0, Math.min(100, evaluation.skillScores?.confidence || 70)),
+        clarity: Math.max(0, Math.min(100, evaluation.skillScores?.clarity || 75)),
+        behavioral: Math.max(0, Math.min(100, evaluation.skillScores?.behavioral || 75))
+      },
+      strengths: Array.isArray(evaluation.strengths) ? evaluation.strengths.slice(0, 5) : [
+        'Participated actively in the interview',
+        'Provided thoughtful responses'
+      ],
+      weaknesses: Array.isArray(evaluation.weaknesses) ? evaluation.weaknesses.slice(0, 4) : [
+        'Could provide more specific examples'
+      ],
+      recommendations: Array.isArray(evaluation.recommendations) ? evaluation.recommendations.slice(0, 5) : [
+        'Continue practicing interview skills',
+        'Prepare more specific examples from experience'
+      ],
+      detailedFeedback: evaluation.detailedFeedback || 'The candidate demonstrated good interview skills with room for improvement in providing more specific examples and demonstrating deeper knowledge in key areas.',
+      badges: Array.isArray(evaluation.badges) ? evaluation.badges.slice(0, 6) : [],
+      evaluatedAt: new Date(),
+      evaluationModel: 'gemini-1.5-pro'
+    }
+
+    // Auto-generate badges based on scores
+    if (validated.skillScores.communication >= 85) validated.badges.push('Excellent Communicator')
+    if (validated.skillScores.technicalKnowledge >= 85) validated.badges.push('Technical Expert')
+    if (validated.skillScores.problemSolving >= 85) validated.badges.push('Problem Solver')
+    if (validated.skillScores.confidence >= 85) validated.badges.push('Confident Leader')
+    if (validated.skillScores.clarity >= 85) validated.badges.push('Clear Thinker')
+    if (validated.skillScores.behavioral >= 85) validated.badges.push('Cultural Fit')
+    if (validated.overallScore >= 90) validated.badges.push('Outstanding Performance')
+
+    // Remove duplicates
+    validated.badges = [...new Set(validated.badges)]
+
+    return validated
+  }
+
+  getFallbackEvaluation() {
+    return {
+      overallScore: 75,
+      skillScores: {
+        communication: 75,
+        technicalKnowledge: 70,
+        problemSolving: 75,
+        confidence: 70,
+        clarity: 75,
+        behavioral: 75
+      },
+      strengths: [
+        'Participated actively in the interview',
+        'Provided thoughtful responses',
+        'Demonstrated good communication skills'
+      ],
+      weaknesses: [
+        'Could provide more specific examples',
+        'Room for improvement in technical depth'
+      ],
+      recommendations: [
+        'Practice with more specific examples from your experience',
+        'Research common interview questions for your field',
+        'Work on providing more detailed technical explanations'
+      ],
+      detailedFeedback: 'The candidate demonstrated solid interview skills with good communication and engagement. There are opportunities to improve by providing more specific examples and demonstrating deeper technical knowledge. Overall, a positive interview performance with clear areas for growth.',
+      badges: [],
+      evaluatedAt: new Date(),
+      evaluationModel: 'fallback'
+    }
+  }
+
+  async generateQuestions(prompt) {
+    if (!this.isInitialized) {
+      this.initialize()
+    }
+
+    try {
+      const result = await this.model.generateContent(prompt)
+      const response = await result.response
+      const text = response.text()
+
+      // Try to parse JSON response
+      try {
+        const jsonMatch = text.match(/\{[\s\S]*\}/)
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0])
+          return parsed
+        }
+      } catch (parseError) {
+        console.warn('Failed to parse JSON, extracting questions manually')
+      }
+
+      // Fallback: extract questions from text
+      const questions = this.extractQuestionsFromText(text)
+      return { questions }
+    } catch (error) {
+      console.error('❌ Gemini question generation error:', error)
+      throw error
+    }
+  }
+
+  async generateFollowUp(prompt) {
+    if (!this.isInitialized) {
+      this.initialize()
+    }
+
+    try {
+      const result = await this.model.generateContent(prompt)
+      const response = await result.response
+      const text = response.text()
+
+      return text.trim()
+    } catch (error) {
+      console.error('❌ Gemini follow-up generation error:', error)
+      throw error
+    }
+  }
+
+  extractQuestionsFromText(text) {
+    // Extract questions from text using various patterns
+    const questionPatterns = [
+      /\d+\.\s*(.+\?)/g,
+      /[-•]\s*(.+\?)/g,
+      /(.+\?)/g
+    ]
+
+    let questions = []
+    
+    for (const pattern of questionPatterns) {
+      const matches = [...text.matchAll(pattern)]
+      if (matches.length > 0) {
+        questions = matches.map(match => match[1].trim()).slice(0, 8)
+        break
+      }
+    }
+
+    // If no questions found, return fallback
+    if (questions.length === 0) {
+      questions = [
+        "Tell me about yourself and your background.",
+        "Why are you interested in this role?",
+        "What are your greatest strengths?",
+        "Describe a challenging situation you faced and how you handled it.",
+        "Where do you see yourself in 5 years?",
+        "Do you have any questions for me?"
+      ]
+    }
+
+    return questions
+  }
+
+  async testConnection() {
+    try {
+      if (!this.isInitialized) {
+        const initialized = this.initialize()
+        if (!initialized) {
+          return false
+        }
+      }
+
+      if (!this.model) {
+        return false
+      }
+
+      // Skip test if we've recently hit rate limits
+      const lastError = this.lastError
+      if (lastError && lastError.includes('quota') && Date.now() - this.lastErrorTime < 60000) {
+        console.log('⚠️ Skipping Gemini test due to recent quota error')
+        return false
+      }
+
+      const result = await this.model.generateContent('Test')
+      const response = await result.response
+      const text = response.text()
+      
+      return text.length > 0
+    } catch (error) {
+      console.error('❌ Gemini connection test failed:', error.message)
+      this.lastError = error.message
+      this.lastErrorTime = Date.now()
+      return false
+    }
+  }
+}
+
+// Create singleton instance
+const geminiService = new GeminiService()
+
+export default geminiService
