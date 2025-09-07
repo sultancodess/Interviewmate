@@ -265,22 +265,46 @@ Be constructive, specific, and actionable in your feedback. Focus on both streng
     }
   }
 
-  async generateQuestions(prompt) {
+  async generateQuestions(jobDescription, difficulty = 'medium', count = 5) {
     if (!this.isInitialized) {
       this.initialize()
     }
 
+    if (!this.checkRateLimit()) {
+      console.log('⚠️ Gemini rate limit reached, using fallback questions')
+      return this.getFallbackQuestions(count)
+    }
+
     try {
+      const prompt = `
+Generate ${count} interview questions for the following job description.
+Difficulty level: ${difficulty}
+
+Job Description:
+${jobDescription}
+
+Please provide questions that are:
+1. Relevant to the role
+2. Appropriate for ${difficulty} difficulty level
+3. Mix of technical and behavioral questions
+4. Clear and concise
+
+Format the response as a JSON array of objects with 'question' and 'type' fields.
+Example: [{"question": "What is your experience with...", "type": "technical"}]
+`
+
       const result = await this.model.generateContent(prompt)
       const response = await result.response
       const text = response.text()
 
+      this.requestCount++
+
       // Try to parse JSON response
       try {
-        const jsonMatch = text.match(/\{[\s\S]*\}/)
+        const jsonMatch = text.match(/\[[\s\S]*\]/)
         if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0])
-          return parsed
+          const questions = JSON.parse(jsonMatch[0])
+          return Array.isArray(questions) ? questions : this.getFallbackQuestions(count)
         }
       } catch (parseError) {
         console.warn('Failed to parse JSON, extracting questions manually')
@@ -288,11 +312,25 @@ Be constructive, specific, and actionable in your feedback. Focus on both streng
 
       // Fallback: extract questions from text
       const questions = this.extractQuestionsFromText(text)
-      return { questions }
+      return questions.map(q => ({ question: q, type: 'behavioral' })).slice(0, count)
     } catch (error) {
       console.error('❌ Gemini question generation error:', error)
       throw error
     }
+  }
+
+  getFallbackQuestions(count = 5) {
+    const questions = [
+      { question: "Tell me about yourself and your background.", type: "behavioral" },
+      { question: "Why are you interested in this role?", type: "behavioral" },
+      { question: "What are your greatest strengths?", type: "behavioral" },
+      { question: "Describe a challenging situation you faced and how you handled it.", type: "behavioral" },
+      { question: "Where do you see yourself in 5 years?", type: "behavioral" },
+      { question: "What motivates you in your work?", type: "behavioral" },
+      { question: "How do you handle stress and pressure?", type: "behavioral" },
+      { question: "Describe your ideal work environment.", type: "behavioral" }
+    ]
+    return questions.slice(0, count)
   }
 
   async generateFollowUp(prompt) {

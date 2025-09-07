@@ -280,10 +280,18 @@ router.get('/analytics', protect, async (req, res, next) => {
 // @route   POST /api/interview/generate-questions
 // @access  Private
 router.post('/generate-questions', protect, [
-  body('prompt')
+  body('jobDescription')
     .trim()
     .notEmpty()
-    .withMessage('Prompt is required')
+    .withMessage('Job description is required'),
+  body('difficulty')
+    .optional()
+    .isIn(['easy', 'medium', 'hard'])
+    .withMessage('Invalid difficulty level'),
+  body('count')
+    .optional()
+    .isInt({ min: 1, max: 10 })
+    .withMessage('Count must be between 1 and 10')
 ], async (req, res, next) => {
   try {
     const errors = validationResult(req)
@@ -295,10 +303,10 @@ router.post('/generate-questions', protect, [
       })
     }
 
-    const { prompt } = req.body
+    const { jobDescription, difficulty = 'medium', count = 5 } = req.body
 
     try {
-      const questions = await geminiService.generateQuestions(prompt)
+      const questions = await geminiService.generateQuestions(jobDescription, difficulty, count)
       
       res.status(200).json({
         success: true,
@@ -308,21 +316,76 @@ router.post('/generate-questions', protect, [
       console.error('Gemini AI Error:', aiError)
       
       // Return fallback questions
-      const fallbackQuestions = {
-        questions: [
-          "Tell me about yourself and your background.",
-          "Why are you interested in this role?",
-          "What are your greatest strengths?",
-          "Describe a challenging situation you faced and how you handled it.",
-          "Where do you see yourself in 5 years?",
-          "Do you have any questions for me?"
-        ]
-      }
+      const fallbackQuestions = [
+        { question: "Tell me about yourself and your background.", type: "behavioral" },
+        { question: "Why are you interested in this role?", type: "behavioral" },
+        { question: "What are your greatest strengths?", type: "behavioral" },
+        { question: "Describe a challenging situation you faced and how you handled it.", type: "behavioral" },
+        { question: "Where do you see yourself in 5 years?", type: "behavioral" }
+      ]
       
       res.status(200).json({
         success: true,
         questions: fallbackQuestions,
         message: 'Using fallback questions due to AI service unavailability'
+      })
+    }
+  } catch (error) {
+    next(error)
+  }
+})
+
+// @desc    Evaluate interview using Gemini AI (general endpoint)
+// @route   POST /api/interview/evaluate
+// @access  Private
+router.post('/evaluate', protect, [
+  body('transcript')
+    .trim()
+    .notEmpty()
+    .withMessage('Transcript is required'),
+  body('questions')
+    .isArray()
+    .withMessage('Questions array is required')
+], async (req, res, next) => {
+  try {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      })
+    }
+
+    const { transcript, questions } = req.body
+
+    try {
+      const evaluation = await geminiService.evaluateInterview(transcript, questions)
+      
+      res.status(200).json({
+        success: true,
+        evaluation
+      })
+    } catch (aiError) {
+      console.error('Gemini AI Error:', aiError)
+      
+      // Return fallback evaluation
+      const fallbackEvaluation = {
+        overallScore: 75,
+        strengths: ['Clear communication', 'Good engagement'],
+        weaknesses: ['Could provide more specific examples'],
+        recommendations: ['Practice behavioral questions', 'Prepare specific examples'],
+        questionFeedback: questions.map((q, index) => ({
+          question: q.question || q,
+          score: 7,
+          feedback: 'Good response, could be more detailed'
+        }))
+      }
+      
+      res.status(200).json({
+        success: true,
+        evaluation: fallbackEvaluation,
+        message: 'Using fallback evaluation due to AI service unavailability'
       })
     }
   } catch (error) {

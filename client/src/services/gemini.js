@@ -1,228 +1,111 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
+// Client-side Gemini service - communicates with server API
 
 class GeminiService {
   constructor() {
-    this.genAI = null
-    this.model = null
-    this.isInitialized = false
+    this.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+    this.initialized = true // Client doesn't need initialization
   }
 
-  // Initialize Gemini AI
-  initialize() {
+  async initialize() {
+    // No initialization needed on client-side
+    console.log('✅ Gemini service ready (client-side)')
+    return true
+  }
+
+  async generateQuestions(jobDescription, difficulty = 'medium', count = 5) {
     try {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY
-      if (!apiKey) {
-        console.warn('Gemini API key not found in environment variables')
-        return false
+      const response = await fetch(`${this.baseURL}/interview/generate-questions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          jobDescription,
+          difficulty,
+          count
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      this.genAI = new GoogleGenerativeAI(apiKey)
-      this.model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
-      this.isInitialized = true
-      
-      console.log('✅ Gemini AI initialized successfully')
-      return true
+      const data = await response.json()
+      return data.questions || []
     } catch (error) {
-      console.error('❌ Failed to initialize Gemini AI:', error)
-      return false
+      console.error('Error generating questions:', error)
+      throw new Error('Failed to generate interview questions')
     }
   }
 
-  // Generate interview questions
-  async generateQuestions(prompt) {
+  async evaluateInterview(transcript, questions) {
     try {
-      if (!this.isInitialized) {
-        const initialized = this.initialize()
-        if (!initialized) {
-          throw new Error('Gemini AI not initialized')
-        }
+      const response = await fetch(`${this.baseURL}/interview/evaluate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          transcript,
+          questions
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      const result = await this.model.generateContent(prompt)
-      const response = await result.response
-      const text = response.text()
-
-      // Try to parse JSON response
-      try {
-        const parsed = JSON.parse(text)
-        return parsed
-      } catch (parseError) {
-        // If not JSON, extract questions from text
-        const questions = this.extractQuestionsFromText(text)
-        return { questions }
-      }
+      const data = await response.json()
+      return data.evaluation || {}
     } catch (error) {
-      console.error('Failed to generate questions:', error)
-      throw error
+      console.error('Error evaluating interview:', error)
+      throw new Error('Failed to evaluate interview')
     }
   }
 
   // Generate follow-up questions
   async generateFollowUp(prompt) {
     try {
-      if (!this.isInitialized) {
-        const initialized = this.initialize()
-        if (!initialized) {
-          throw new Error('Gemini AI not initialized')
-        }
+      const response = await fetch(`${this.baseURL}/interview/generate-followup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ prompt })
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      const result = await this.model.generateContent(prompt)
-      const response = await result.response
-      return response.text().trim()
+      const data = await response.json()
+      return data.followUp || ''
     } catch (error) {
-      console.error('Failed to generate follow-up:', error)
-      throw error
+      console.error('Error generating follow-up:', error)
+      throw new Error('Failed to generate follow-up question')
     }
   }
 
-  // Evaluate interview performance
-  async evaluateInterview(transcript, interviewData) {
+  // Helper method to check service health
+  async checkHealth() {
     try {
-      if (!this.isInitialized) {
-        const initialized = this.initialize()
-        if (!initialized) {
-          throw new Error('Gemini AI not initialized')
-        }
-      }
-
-      const prompt = this.buildEvaluationPrompt(transcript, interviewData)
-      const result = await this.model.generateContent(prompt)
-      const response = await result.response
-      const text = response.text()
-
-      // Try to parse JSON response
-      try {
-        const evaluation = JSON.parse(text)
-        return evaluation
-      } catch (parseError) {
-        // If not JSON, create structured evaluation from text
-        return this.parseEvaluationFromText(text)
-      }
+      const response = await fetch(`${this.baseURL}/health`)
+      return response.ok
     } catch (error) {
-      console.error('Failed to evaluate interview:', error)
-      throw error
+      console.error('Health check failed:', error)
+      return false
     }
-  }
-
-  // Build evaluation prompt
-  buildEvaluationPrompt(transcript, interviewData) {
-    return `Evaluate this ${interviewData.type} interview performance:
-
-CANDIDATE INFO:
-- Name: ${interviewData.candidateInfo.name}
-- Role: ${interviewData.candidateInfo.role}
-- Experience: ${interviewData.candidateInfo.experience}
-- Company: ${interviewData.candidateInfo.company}
-
-INTERVIEW TRANSCRIPT:
-${transcript}
-
-EVALUATION CRITERIA:
-- Communication Skills (clarity, articulation, confidence)
-- Technical Knowledge (for technical interviews)
-- Problem-Solving Ability
-- Behavioral Responses (for HR interviews)
-- Overall Professionalism
-
-Please provide a detailed evaluation in JSON format:
-{
-  "overallScore": 85,
-  "skillScores": {
-    "communication": 90,
-    "technicalKnowledge": 80,
-    "problemSolving": 85,
-    "confidence": 88,
-    "clarity": 92,
-    "behavioral": 85
-  },
-  "strengths": ["Clear communication", "Good technical knowledge"],
-  "weaknesses": ["Could improve confidence", "More specific examples needed"],
-  "recommendations": ["Practice more technical scenarios", "Work on body language"],
-  "detailedFeedback": "Detailed paragraph about performance...",
-  "badges": ["Clear Communicator", "Technical Expert"]
-}
-
-Provide constructive, actionable feedback that helps the candidate improve.`
-  }
-
-  // Extract questions from text response
-  extractQuestionsFromText(text) {
-    const lines = text.split('\n').filter(line => line.trim())
-    const questions = []
-
-    for (const line of lines) {
-      const trimmed = line.trim()
-      if (trimmed.match(/^\d+\./) || trimmed.includes('?')) {
-        // Remove numbering and clean up
-        const question = trimmed.replace(/^\d+\.\s*/, '').trim()
-        if (question.length > 10) {
-          questions.push(question)
-        }
-      }
-    }
-
-    return questions.slice(0, 10) // Limit to 10 questions
-  }
-
-  // Parse evaluation from text response
-  parseEvaluationFromText(text) {
-    // Basic parsing for non-JSON responses
-    const _lines = text.split('\n').filter(line => line.trim())
-    
-    return {
-      overallScore: 75, // Default score
-      skillScores: {
-        communication: 75,
-        technicalKnowledge: 70,
-        problemSolving: 75,
-        confidence: 70,
-        clarity: 80,
-        behavioral: 75
-      },
-      strengths: this.extractListFromText(text, ['strength', 'good', 'excellent', 'strong']),
-      weaknesses: this.extractListFromText(text, ['weakness', 'improve', 'work on', 'better']),
-      recommendations: this.extractListFromText(text, ['recommend', 'suggest', 'should', 'practice']),
-      detailedFeedback: text.substring(0, 500) + '...',
-      badges: ['Participant']
-    }
-  }
-
-  // Extract list items from text based on keywords
-  extractListFromText(text, keywords) {
-    const sentences = text.split(/[.!?]/).filter(s => s.trim())
-    const items = []
-
-    for (const sentence of sentences) {
-      const lower = sentence.toLowerCase()
-      if (keywords.some(keyword => lower.includes(keyword))) {
-        const cleaned = sentence.trim()
-        if (cleaned.length > 10 && cleaned.length < 200) {
-          items.push(cleaned)
-        }
-      }
-    }
-
-    return items.slice(0, 5) // Limit to 5 items
   }
 
   // Test connection
   async testConnection() {
     try {
-      if (!this.isInitialized) {
-        const initialized = this.initialize()
-        if (!initialized) {
-          return false
-        }
-      }
-
-      const result = await this.model.generateContent('Say "Hello" if you can hear me.')
-      const response = await result.response
-      const text = response.text()
-      
-      return text.toLowerCase().includes('hello')
+      return await this.checkHealth()
     } catch (error) {
-      console.error('Gemini connection test failed:', error)
+      console.error('Connection test failed:', error)
       return false
     }
   }
