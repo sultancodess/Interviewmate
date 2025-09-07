@@ -26,14 +26,14 @@ class WebSpeechService {
       this.voices = this.synthesis.getVoices()
       
       // Prefer female voice for HR, male for Technical
-      const femaleVoices = this.voices.filter(voice => 
+      const _femaleVoices = this.voices.filter(voice => 
         voice.name.toLowerCase().includes('female') || 
         voice.name.toLowerCase().includes('samantha') ||
         voice.name.toLowerCase().includes('karen') ||
         voice.name.toLowerCase().includes('susan')
       )
       
-      const maleVoices = this.voices.filter(voice => 
+      const _maleVoices = this.voices.filter(voice => 
         voice.name.toLowerCase().includes('male') || 
         voice.name.toLowerCase().includes('daniel') ||
         voice.name.toLowerCase().includes('alex') ||

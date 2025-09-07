@@ -6,11 +6,11 @@ import {
   Book, 
   MessageCircle, 
   Mail, 
-  ExternalLink,
+  
   ChevronDown,
   ChevronRight,
   Brain,
-  Globe,
+  
   Mic,
   BarChart3
 } from 'lucide-react'

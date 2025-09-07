@@ -101,4 +101,4 @@ export const checkDevelopmentSetup = () => {
   }
 }
 
-export default { validateEnvironment, checkDevelopmentSetup }
+// Default export removed - using named exports

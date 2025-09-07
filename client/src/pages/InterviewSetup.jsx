@@ -4,6 +4,7 @@ import { useInterview } from '../contexts/InterviewContext'
 import { useAuth } from '../contexts/AuthContext'
 import DashboardLayout from '../components/Layout/DashboardLayout'
 import LoadingSpinner from '../components/LoadingSpinner'
+import FileUpload from '../components/FileUpload'
 import { 
   ArrowRight, 
   ArrowLeft, 
@@ -12,10 +13,12 @@ import {
   CheckCircle,
   Brain,
   Globe,
-  Plus,
-  X,
+  
+  
   Zap,
-  CreditCard
+  CreditCard,
+  Upload,
+  FileText
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -30,7 +33,9 @@ const InterviewSetup = () => {
       name: user?.name || '',
       role: '',
       company: '',
-      experience: 'fresher'
+      experience: 'fresher',
+      resume: null,
+      jobDescriptionFile: null
     },
     type: 'hr',
     configuration: {
@@ -40,6 +45,7 @@ const InterviewSetup = () => {
       topics: [],
       customTopics: [],
       customQuestions: [],
+      customQuestionsFile: null,
       jobDescription: '',
       language: 'en'
     }
@@ -124,7 +130,7 @@ const InterviewSetup = () => {
     }))
   }
 
-  const addCustomTopic = () => {
+  const _addCustomTopic = () => {
     if (customTopic.trim()) {
       updateFormData('configuration', 'customTopics', [
         ...formData.configuration.customTopics,
@@ -134,12 +140,12 @@ const InterviewSetup = () => {
     }
   }
 
-  const removeCustomTopic = (index) => {
+  const _removeCustomTopic = (index) => {
     const updatedTopics = formData.configuration.customTopics.filter((_, i) => i !== index)
     updateFormData('configuration', 'customTopics', updatedTopics)
   }
 
-  const addCustomQuestion = () => {
+  const _addCustomQuestion = () => {
     if (customQuestion.trim()) {
       updateFormData('configuration', 'customQuestions', [
         ...formData.configuration.customQuestions,
@@ -149,7 +155,7 @@ const InterviewSetup = () => {
     }
   }
 
-  const removeCustomQuestion = (index) => {
+  const _removeCustomQuestion = (index) => {
     const updatedQuestions = formData.configuration.customQuestions.filter((_, i) => i !== index)
     updateFormData('configuration', 'customQuestions', updatedQuestions)
   }
@@ -317,6 +323,77 @@ const InterviewSetup = () => {
                       <option key={level.id} value={level.id}>{level.name}</option>
                     ))}
                   </select>
+                </div>
+              </div>
+
+              {/* File Uploads Section */}
+              <div className="mt-8 space-y-6">
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                    <Upload className="h-5 w-5 mr-2 text-blue-500" />
+                    Optional Documents
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-6">
+                    Upload your resume and job description to get more personalized interview questions.
+                  </p>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Resume Upload */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-3">
+                        <FileText className="inline h-4 w-4 mr-1" />
+                        Resume/CV
+                      </label>
+                      <FileUpload
+                        onFileSelect={(file) => updateFormData('candidateInfo', 'resume', file)}
+                        acceptedTypes=".pdf,.doc,.docx"
+                        maxSize={10 * 1024 * 1024}
+                        label="Upload Resume"
+                        description="PDF, DOC, DOCX up to 10MB"
+                        uploadType="resume"
+                      />
+                      {formData.candidateInfo.resume && (
+                        <div className="mt-2 text-sm text-green-600 flex items-center">
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                          Resume uploaded successfully
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Job Description Upload */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-3">
+                        <FileText className="inline h-4 w-4 mr-1" />
+                        Job Description
+                      </label>
+                      <FileUpload
+                        onFileSelect={(file) => updateFormData('candidateInfo', 'jobDescriptionFile', file)}
+                        acceptedTypes=".pdf,.doc,.docx,.txt"
+                        maxSize={10 * 1024 * 1024}
+                        label="Upload Job Description"
+                        description="PDF, DOC, DOCX, TXT up to 10MB"
+                        uploadType="jobDescription"
+                      />
+                      {formData.candidateInfo.jobDescriptionFile && (
+                        <div className="mt-2 text-sm text-green-600 flex items-center">
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                          Job description uploaded successfully
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="flex items-start">
+                      <Brain className="h-5 w-5 text-blue-500 mt-0.5 mr-3 flex-shrink-0" />
+                      <div>
+                        <h4 className="text-sm font-medium text-blue-900">AI Enhancement</h4>
+                        <p className="text-sm text-blue-700 mt-1">
+                          When you upload documents, our AI will analyze them to create more relevant and personalized interview questions tailored to your background and the specific role.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

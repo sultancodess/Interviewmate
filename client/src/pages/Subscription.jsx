@@ -7,9 +7,9 @@ import {
   Brain, 
   Globe, 
   Zap, 
-  Star,
-  Plus,
-  ArrowRight,
+  
+  
+  
   AlertCircle
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -17,7 +17,7 @@ import toast from 'react-hot-toast'
 const Subscription = () => {
   const { user } = useAuth()
   const [loading, setLoading] = useState(false)
-  const [addFundsAmount, setAddFundsAmount] = useState(10)
+  const [_addFundsAmount, _setAddFundsAmount] = useState(10)
 
   const currentPlan = user?.subscription?.plan || 'free'
   const vapiMinutesRemaining = user?.subscription?.vapiMinutesRemaining || 0

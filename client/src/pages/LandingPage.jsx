@@ -5,9 +5,9 @@ import {
   Mic, 
   BarChart3, 
   Users, 
-  Code, 
+   
   CheckCircle, 
-  Star,
+  
   ArrowRight,
   Play,
   Globe,

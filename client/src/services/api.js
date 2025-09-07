@@ -114,6 +114,35 @@ export const apiService = {
     getHistory: () => api.get('/payment/history'),
     cancelSubscription: () => api.post('/payment/cancel-subscription'),
   },
+
+  // Upload endpoints
+  upload: {
+    resume: (formData) => api.post('/upload/resume', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    }),
+    jobDescription: (formData) => api.post('/upload/job-description', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    }),
+    customQuestions: (formData) => api.post('/upload/custom-questions', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    }),
+    multiple: (formData) => api.post('/upload/multiple', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    }),
+    delete: (filename) => api.delete(`/upload/${filename}`),
+    getInfo: (filename) => api.get(`/upload/${filename}`),
+  },
+
+  // Admin endpoints
+  admin: {
+    getAnalytics: () => api.get('/admin/analytics'),
+    getUsers: (params = {}) => api.get('/admin/users', { params }),
+    getInterviews: (params = {}) => api.get('/admin/interviews', { params }),
+    updateUserSubscription: (userId, data) => api.put(`/admin/users/${userId}/subscription`, data),
+    deleteUser: (userId) => api.delete(`/admin/users/${userId}`),
+    getHealth: () => api.get('/admin/health'),
+    setupAdmin: (data) => api.post('/admin/setup', data),
+  },
 }
 
 // Utility functions for handling API responses

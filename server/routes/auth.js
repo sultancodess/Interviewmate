@@ -2,6 +2,7 @@ import express from 'express'
 import { body, validationResult } from 'express-validator'
 import User from '../models/User.js'
 import { protect, sendTokenResponse } from '../middleware/auth.js'
+import { sendWelcomeEmail } from '../config/email.js'
 
 const router = express.Router()
 
@@ -48,6 +49,11 @@ router.post('/register', [
       name,
       email,
       password
+    })
+
+    // Send welcome email (don't wait for it)
+    sendWelcomeEmail(user).catch(error => {
+      console.error('Failed to send welcome email:', error)
     })
 
     sendTokenResponse(user, 201, res)

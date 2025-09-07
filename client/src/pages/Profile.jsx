@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext'
 import DashboardLayout from '../components/Layout/DashboardLayout'
 import { 
   User, 
-  Mail, 
+   
   Lock, 
   Camera, 
   Save, 

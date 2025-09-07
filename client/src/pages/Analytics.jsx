@@ -66,7 +66,7 @@ const Analytics = () => {
     return 'text-red-600'
   }
 
-  const getScoreBackground = (score) => {
+  const _getScoreBackground = (score) => {
     if (score >= 80) return 'bg-green-100'
     if (score >= 60) return 'bg-yellow-100'
     return 'bg-red-100'

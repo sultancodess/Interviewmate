@@ -27,7 +27,7 @@ import {
 const LiveInterview = () => {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user: _user } = useAuth()
   const { getInterview, evaluateInterview } = useInterview()
   
   // State management
@@ -38,7 +38,7 @@ const LiveInterview = () => {
   
   // Call state
   const [callStatus, setCallStatus] = useState('idle') // idle, connecting, connected, ended
-  const [isConnected, setIsConnected] = useState(false)
+  const [_isConnected, _setIsConnected] = useState(false)
   const [currentQuestion, setCurrentQuestion] = useState('')
   const [transcript, setTranscript] = useState('')
   
@@ -86,7 +86,7 @@ const LiveInterview = () => {
   }, [id])
 
   // Initialize interview systems
-  const initializeInterviewSystem = async (interviewData) => {
+  const initializeInterviewSystem = async (_interviewData) => {
     try {
       setIsInitializing(true)
       setError(null)
@@ -122,21 +122,21 @@ const LiveInterview = () => {
         onCallStart: () => {
           console.log('VAPI call started')
           setCallStatus('connected')
-          setIsConnected(true)
+          _setIsConnected(true)
           startTimer()
           console.log('Connected to AI interviewer!')
         },
         onCallEnd: () => {
           console.log('VAPI call ended')
           setCallStatus('ended')
-          setIsConnected(false)
+          _setIsConnected(false)
           stopTimer()
         },
         onError: (error) => {
           console.error('VAPI error:', error)
           setError(error.message)
           setCallStatus('idle')
-          setIsConnected(false)
+          _setIsConnected(false)
           console.error('Speech recognition error: ' + error.message)
         },
         onMessage: (message) => {
@@ -193,11 +193,11 @@ const LiveInterview = () => {
   }
 
   // Handle VAPI service errors
-  const handleVapiError = (error) => {
+  const _handleVapiError = (error) => {
     console.error('VAPI Service Error:', error)
     setError('VAPI service error. Please try again or contact support.')
     setCallStatus('idle')
-    setIsConnected(false)
+    _setIsConnected(false)
     console.error('VAPI service error. Please try again or contact support.')
   }
 
@@ -221,7 +221,7 @@ const LiveInterview = () => {
           
           if (result.success) {
             setCallStatus('connected')
-            setIsConnected(true)
+            _setIsConnected(true)
             startTimer()
             console.log('Connected to VAPI AI interviewer!')
             return
@@ -241,7 +241,7 @@ const LiveInterview = () => {
       
       if (webSpeechResult) {
         setCallStatus('connected')
-        setIsConnected(true)
+        _setIsConnected(true)
         startTimer()
         console.log('Connected to Web Speech API interviewer!')
         

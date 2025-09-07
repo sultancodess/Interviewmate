@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { useInterview } from '../contexts/InterviewContext'
 // Removed framer-motion - using simple animations
 import LinkedInShare from '../components/LinkedInShare'
+import SocialShare from '../components/SocialShare'
 import { 
   Award, 
   TrendingUp, 
@@ -23,30 +24,30 @@ import {
   User,
   Calendar,
   FileText,
-  ExternalLink,
-  Copy,
-  Linkedin,
-  Twitter,
-  Facebook,
-  Mail,
+  
+  
+  
+  
+  
+  
   Loader
 } from 'lucide-react'
-// Removed recharts and jsPDF imports - using mock implementations
-// TODO: Install recharts and jspdf packages for full functionality
-// import { 
-//   RadarChart, 
-//   PolarGrid, 
-//   PolarAngleAxis, 
-//   PolarRadiusAxis, 
-//   Radar, 
-//   ResponsiveContainer,
-//   BarChart,
-//   Bar,
-//   XAxis,
-//   YAxis,
-//   CartesianGrid,
-//   Tooltip
-// } from 'recharts'
+import { 
+  RadarChart, 
+  PolarGrid, 
+  PolarAngleAxis, 
+  PolarRadiusAxis, 
+  Radar, 
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip
+} from 'recharts'
+import { generateInterviewReport, generateQuickReport } from '../utils/pdfGenerator'
+import toast from 'react-hot-toast'
 
 const InterviewReport = () => {
   const { id } = useParams()
@@ -54,6 +55,7 @@ const InterviewReport = () => {
   const [interview, setInterview] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showLinkedInShare, setShowLinkedInShare] = useState(false)
+  const [showSocialShare, setShowSocialShare] = useState(false)
 
   useEffect(() => {
     const fetchInterview = async () => {
@@ -75,47 +77,50 @@ const InterviewReport = () => {
     fetchInterview()
   }, [id])
 
-  const generatePDF = () => {
+  const generatePDF = async () => {
     if (!interview) return
 
-    // Mock PDF generation - replace with actual jsPDF when package is installed
-    console.log('Mock PDF generation for interview:', interview.id)
-    
-    const reportData = {
-      candidate: interview.candidateInfo.name,
-      role: interview.candidateInfo.role,
-      company: interview.candidateInfo.company,
-      type: interview.type,
-      date: new Date(interview.createdAt).toLocaleDateString(),
-      score: interview.evaluation?.overallScore || 0,
-      grade: interview.performanceGrade
+    try {
+      toast.loading('Generating PDF report...', { id: 'pdf-generation' })
+      
+      const result = await generateInterviewReport(interview)
+      
+      if (result.success) {
+        toast.success(`PDF report generated: ${result.fileName}`, { id: 'pdf-generation' })
+      } else {
+        toast.error(`Failed to generate PDF: ${result.message}`, { id: 'pdf-generation' })
+      }
+    } catch (error) {
+      console.error('PDF generation error:', error)
+      toast.error('Failed to generate PDF report', { id: 'pdf-generation' })
     }
-    
-    alert(`PDF generation is not available yet. Install jspdf package to enable this feature.\n\nReport Summary:\n- Candidate: ${reportData.candidate}\n- Role: ${reportData.role}\n- Company: ${reportData.company}\n- Score: ${reportData.score}%\n- Grade: ${reportData.grade}`)
-    
-    console.log('Report data that would be in PDF:', reportData)
   }
 
-  const shareOnLinkedIn = () => {
+  const generateQuickPDF = async () => {
+    if (!interview) return
+
+    try {
+      toast.loading('Generating quick report...', { id: 'quick-pdf' })
+      
+      const result = await generateQuickReport(interview)
+      
+      if (result.success) {
+        toast.success(`Quick report generated: ${result.fileName}`, { id: 'quick-pdf' })
+      } else {
+        toast.error(`Failed to generate quick report: ${result.error}`, { id: 'quick-pdf' })
+      }
+    } catch (error) {
+      console.error('Quick PDF generation error:', error)
+      toast.error('Failed to generate quick report', { id: 'quick-pdf' })
+    }
+  }
+
+  const _shareOnLinkedIn = () => {
     setShowLinkedInShare(true)
   }
 
   const shareReport = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'InterviewMate Report',
-          text: `I just completed an interview practice session and scored ${interview.evaluation?.overallScore}%!`,
-          url: window.location.href
-        })
-      } catch (error) {
-        console.log('Error sharing:', error)
-      }
-    } else {
-      // Fallback: copy to clipboard
-      navigator.clipboard.writeText(window.location.href)
-      toast.success('Report link copied to clipboard!')
-    }
+    setShowSocialShare(true)
   }
 
   if (loading) {
@@ -223,19 +228,28 @@ const InterviewReport = () => {
                 Back to History
               </Link>
               <button 
-                onClick={shareOnLinkedIn} 
-                className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                onClick={shareReport} 
+                className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
               >
-                <Linkedin className="mr-2 h-4 w-4" />
-                Share on LinkedIn
+                <Share2 className="mr-2 h-4 w-4" />
+                Share Success
               </button>
-              <button 
-                onClick={generatePDF} 
-                className="flex items-center px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white rounded-lg transition-all duration-300 shadow-lg"
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Download PDF
-              </button>
+              <div className="flex space-x-2">
+                <button 
+                  onClick={generateQuickPDF} 
+                  className="flex items-center px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors text-sm"
+                >
+                  <Download className="mr-1 h-3 w-3" />
+                  Quick PDF
+                </button>
+                <button 
+                  onClick={generatePDF} 
+                  className="flex items-center px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white rounded-lg transition-all duration-300 shadow-lg"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Full Report PDF
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -342,12 +356,22 @@ const InterviewReport = () => {
               </div>
               <h3 className="text-xl font-bold text-gray-900">Skills Breakdown</h3>
             </div>
-            <div className="h-80 bg-gray-50 rounded-lg flex items-center justify-center">
-              <div className="text-center">
-                <span className="text-4xl mb-4 block">📊</span>
-                <p className="text-gray-600">Skills radar chart will appear here</p>
-                <p className="text-sm text-gray-500 mt-2">Install recharts package to enable charts</p>
-              </div>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <RadarChart data={radarData}>
+                  <PolarGrid />
+                  <PolarAngleAxis dataKey="subject" />
+                  <PolarRadiusAxis angle={90} domain={[0, 100]} />
+                  <Radar
+                    name="Skills"
+                    dataKey="score"
+                    stroke="#3B82F6"
+                    fill="#3B82F6"
+                    fillOpacity={0.3}
+                    strokeWidth={2}
+                  />
+                </RadarChart>
+              </ResponsiveContainer>
             </div>
           </div>
 
@@ -359,12 +383,16 @@ const InterviewReport = () => {
               </div>
               <h3 className="text-xl font-bold text-gray-900">Detailed Scores</h3>
             </div>
-            <div className="h-80 bg-gray-50 rounded-lg flex items-center justify-center">
-              <div className="text-center">
-                <span className="text-4xl mb-4 block">📊</span>
-                <p className="text-gray-600">Skills bar chart will appear here</p>
-                <p className="text-sm text-gray-500 mt-2">Install recharts package to enable charts</p>
-              </div>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={skillsData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="skill" />
+                  <YAxis domain={[0, 100]} />
+                  <Tooltip />
+                  <Bar dataKey="score" fill="#3B82F6" />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </div>
         </div>
@@ -518,15 +546,15 @@ const InterviewReport = () => {
               </Link>
               
               <button 
-                onClick={shareOnLinkedIn}
+                onClick={shareReport}
                 className="group bg-white/20 backdrop-blur-md hover:bg-white/30 rounded-xl p-4 transition-all duration-300 hover:scale-105"
               >
                 <div className="text-center">
                   <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-white/30 transition-colors">
-                    <Linkedin className="h-6 w-6" />
+                    <Share2 className="h-6 w-6" />
                   </div>
                   <h4 className="font-bold mb-1">Share Success</h4>
-                  <p className="text-sm opacity-80">Post on LinkedIn</p>
+                  <p className="text-sm opacity-80">Social media & more</p>
                 </div>
               </button>
               
@@ -546,6 +574,13 @@ const InterviewReport = () => {
           </div>
         </div>
       </div>
+
+      {/* Social Share Modal */}
+      <SocialShare 
+        interview={interview}
+        isOpen={showSocialShare}
+        onClose={() => setShowSocialShare(false)}
+      />
 
       {/* LinkedIn Share Modal */}
       {showLinkedInShare && (

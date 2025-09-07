@@ -14,10 +14,15 @@ import authRoutes from './routes/auth.js'
 import userRoutes from './routes/user.js'
 import interviewRoutes from './routes/interview.js'
 import paymentRoutes from './routes/payment.js'
+import uploadRoutes from './routes/upload.js'
+import adminRoutes from './routes/admin.js'
+import healthRoutes from './routes/health.js'
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler.js'
 import { notFound } from './middleware/notFound.js'
+import { sanitizeAll } from './middleware/sanitize.js'
+import { apiLimiter, authLimiter } from './middleware/rateLimiting.js'
 
 // Validate environment variables
 validateEnvironment()
@@ -69,6 +74,8 @@ app.use('/api/auth', authRoutes)
 app.use('/api/user', userRoutes)
 app.use('/api/interview', interviewRoutes)
 app.use('/api/payment', paymentRoutes)
+app.use('/api/upload', uploadRoutes)
+app.use('/api/admin', adminRoutes)
 
 // Error handling middleware
 app.use(notFound)

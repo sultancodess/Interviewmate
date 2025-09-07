@@ -168,7 +168,7 @@ Provide constructive, actionable feedback that helps the candidate improve.`
   // Parse evaluation from text response
   parseEvaluationFromText(text) {
     // Basic parsing for non-JSON responses
-    const lines = text.split('\n').filter(line => line.trim())
+    const _lines = text.split('\n').filter(line => line.trim())
     
     return {
       overallScore: 75, // Default score

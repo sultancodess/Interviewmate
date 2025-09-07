@@ -25,6 +25,7 @@ import Profile from "./pages/Profile";
 import Subscription from "./pages/Subscription";
 import Pricing from "./pages/Pricing";
 import HelpPage from "./pages/HelpPage";
+import AdminDashboard from "./pages/AdminDashboard";
 
 function App() {
   return (
@@ -127,6 +128,15 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <HelpPage />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/admin"
+                  element={
+                    <ProtectedRoute>
+                      <AdminDashboard />
                     </ProtectedRoute>
                   }
                 />
