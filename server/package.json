@@ -6,7 +6,9 @@
   "main": "server.js",
   "scripts": {
     "dev": "nodemon server.js",
+    "dev:safe": "node scripts/start.js",
     "start": "node server.js",
+    "start:safe": "node scripts/start.js",
     "test": "jest",
     "check-env": "node scripts/checkEnv.js",
     "setup": "node scripts/checkEnv.js && npm run dev"

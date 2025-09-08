@@ -17,6 +17,7 @@ import paymentRoutes from './routes/payment.js'
 import uploadRoutes from './routes/upload.js'
 import adminRoutes from './routes/admin.js'
 import healthRoutes from './routes/health.js'
+import reportsRoutes from './routes/reports.js'
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler.js'
@@ -29,7 +30,7 @@ validateEnvironment()
 checkDevelopmentSetup()
 
 const app = express()
-const PORT = process.env.PORT || 5000
+const PORT = process.env.PORT || 5001
 
 // Security middleware
 app.use(helmet())
@@ -76,6 +77,8 @@ app.use('/api/interview', interviewRoutes)
 app.use('/api/payment', paymentRoutes)
 app.use('/api/upload', uploadRoutes)
 app.use('/api/admin', adminRoutes)
+app.use('/api/reports', reportsRoutes)
+app.use('/api', healthRoutes)
 
 // Error handling middleware
 app.use(notFound)

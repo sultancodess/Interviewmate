@@ -3,6 +3,8 @@ import { body, validationResult } from 'express-validator'
 import Razorpay from 'razorpay'
 import crypto from 'crypto'
 import User from '../models/User.js'
+import Payment from '../models/Payment.js'
+import Ledger from '../models/Ledger.js'
 import { protect } from '../middleware/auth.js'
 
 const router = express.Router()
@@ -147,26 +149,57 @@ router.post('/verify', protect, [
       })
     }
 
-    // Payment verified successfully, update user subscription
-    const user = await User.findById(req.user.id)
+    // Get order details from Razorpay
+    const order = await razorpay.orders.fetch(razorpay_order_id)
+    const amount = order.amount / 100 // Convert from paise to rupees
     
-    // Update subscription based on plan
-    if (plan === 'pro') {
-      // Pro plan: Add credits to pay-as-you-go balance
-      const creditsToAdd = amount // $1 = 2 minutes at $0.50 per minute
-      user.subscription.plan = 'pro'
-      user.subscription.payAsYouGoBalance += creditsToAdd
-      
-      // Update payment record
-      user.subscription.lastPayment = {
-        amount: amount,
-        date: new Date(),
-        razorpayPaymentId: razorpay_payment_id,
-        status: 'completed'
+    // Create payment record
+    const payment = await Payment.create({
+      userId: req.user.id,
+      transactionId: `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      razorpayOrderId: razorpay_order_id,
+      razorpayPaymentId: razorpay_payment_id,
+      razorpaySignature: razorpay_signature,
+      amount,
+      currency: order.currency,
+      status: 'completed',
+      plan,
+      description: `${plan} plan purchase - ${amount} ${order.currency}`,
+      metadata: {
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
       }
-      
-      await user.save()
+    })
+
+    // Calculate minutes to add (assuming $0.50 per minute for VAPI)
+    const minutesToAdd = Math.floor(amount * 2) // $1 = 2 minutes
+    
+    // Add credit to ledger
+    await Ledger.addCredit(
+      req.user.id,
+      minutesToAdd,
+      'purchase',
+      `Purchased ${minutesToAdd} minutes for ${amount} ${order.currency}`,
+      payment._id,
+      'Payment'
+    )
+
+    // Update user subscription
+    const user = await User.findById(req.user.id)
+    user.subscription.plan = 'pro'
+    user.subscription.payAsYouGoBalance += amount
+    user.subscription.lastPayment = {
+      amount,
+      date: new Date(),
+      razorpayPaymentId: razorpay_payment_id,
+      status: 'completed'
     }
+    
+    await user.save()
+
+    // Update payment record with minutes added
+    payment.minutesAdded = minutesToAdd
+    await payment.save()
 
     // In production, you might want to:
     // 1. Store payment details in a separate Payment model

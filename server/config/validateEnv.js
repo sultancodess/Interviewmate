@@ -40,6 +40,15 @@ export const validateEnvironment = () => {
     }
   })
 
+  // Check JWT secret strength
+  if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
+    warnings.push('JWT_SECRET should be at least 32 characters long for security')
+  }
+
+  if (process.env.JWT_SECRET === 'interviewmate123') {
+    warnings.push('Using default JWT secret - change this in production!')
+  }
+
   // Check optional services
   if (!process.env.GEMINI_API_KEY) {
     warnings.push('GEMINI_API_KEY not set - AI evaluation will use fallback mode')
