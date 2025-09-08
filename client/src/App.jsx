@@ -15,6 +15,8 @@ import TailwindTest from "./TailwindTest";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import Dashboard from "./pages/Dashboard";
 import InterviewSetup from "./pages/InterviewSetup";
 import LiveInterview from "./pages/LiveInterview";
@@ -22,6 +24,7 @@ import InterviewReport from "./pages/InterviewReport";
 import InterviewHistory from "./pages/InterviewHistory";
 import Analytics from "./pages/Analytics";
 import Profile from "./pages/Profile";
+import Settings from "./pages/Settings";
 import Subscription from "./pages/Subscription";
 import Pricing from "./pages/Pricing";
 import HelpPage from "./pages/HelpPage";
@@ -40,6 +43,8 @@ function App() {
                 <Route path="/tailwind-test" element={<TailwindTest />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
+                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
 
                 {/* Protected Routes */}
                 <Route
@@ -101,6 +106,15 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <Profile />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/settings"
+                  element={
+                    <ProtectedRoute>
+                      <Settings />
                     </ProtectedRoute>
                   }
                 />

@@ -34,23 +34,61 @@ const Dashboard = () => {
         // Fetch recent interviews
         const historyResult = await getInterviewHistory({ limit: 5 })
         if (historyResult.success) {
-          setRecentInterviews(historyResult.interviews)
+          setRecentInterviews(historyResult.data?.interviews || historyResult.interviews || [])
+        } else {
+          console.log('No interview history found:', historyResult.message)
+          setRecentInterviews([])
         }
 
         // Fetch analytics
         const analyticsResult = await getAnalytics()
         if (analyticsResult.success) {
-          setAnalytics(analyticsResult.analytics)
+          setAnalytics(analyticsResult.data?.analytics || analyticsResult.analytics || {
+            overview: {
+              totalInterviews: 0,
+              averageScore: 0,
+              totalMinutes: 0,
+              completedInterviews: 0
+            },
+            performanceTrend: [],
+            skillBreakdown: {}
+          })
+        } else {
+          console.log('No analytics found:', analyticsResult.message)
+          setAnalytics({
+            overview: {
+              totalInterviews: 0,
+              averageScore: 0,
+              totalMinutes: 0,
+              completedInterviews: 0
+            },
+            performanceTrend: [],
+            skillBreakdown: {}
+          })
         }
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error)
+        // Set default empty state
+        setRecentInterviews([])
+        setAnalytics({
+          overview: {
+            totalInterviews: 0,
+            averageScore: 0,
+            totalMinutes: 0,
+            completedInterviews: 0
+          },
+          performanceTrend: [],
+          skillBreakdown: {}
+        })
       } finally {
         setLoading(false)
       }
     }
 
-    fetchDashboardData()
-  }, [])
+    if (user) {
+      fetchDashboardData()
+    }
+  }, [user, getInterviewHistory, getAnalytics])
 
   const quickActions = [
     {
@@ -99,7 +137,7 @@ const Dashboard = () => {
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
+        <div className="flex items-center justify-center h-4">
           <LoadingSpinner size="lg" text="Loading dashboard..." />
         </div>
       </DashboardLayout>
@@ -109,36 +147,69 @@ const Dashboard = () => {
   return (
     <DashboardLayout>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Section */}
+        {/* Welcome Section with Avatar */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Welcome back, {user?.name?.split(' ')[0]}! 👋
-          </h1>
-          <p className="text-lg text-gray-600">
-            Ready to practice your interview skills? Let's get started.
-          </p>
+          <div className="flex items-center space-x-4 mb-4">
+            <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+              <span className="text-2xl font-bold text-white">
+                {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+              </span>
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Welcome back, {user?.name?.split(' ')[0]}! 👋
+              </h1>
+              <p className="text-lg text-gray-600">
+                Ready to practice your interview skills? Let's get started.
+              </p>
+            </div>
+          </div>
         </div>
 
-        {/* Subscription Status */}
-        <div className="mb-8 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
+        {/* Subscription Status with Badge */}
+        <div className="mb-8 p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-200">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-semibold text-gray-900 mb-1">
-                {user?.subscription?.plan === 'free' ? 'Free Plan' : 'Pro Plan'}
-              </h3>
-              <div className="flex items-center space-x-4 text-sm text-gray-600">
-                <div className="flex items-center">
-                  <Brain className="w-4 h-4 mr-1 text-blue-500" />
-                  <span>VAPI: {user?.subscription?.vapiMinutesRemaining || 0} minutes left</span>
+              <div className="flex items-center space-x-3 mb-3">
+                <h3 className="font-semibold text-gray-900">
+                  {user?.subscription?.plan === 'free' ? 'Free Plan' : 'Pro Plan'}
+                </h3>
+                <span className={`px-3 py-1 text-xs font-medium rounded-full ${
+                  user?.subscription?.plan === 'free' 
+                    ? 'bg-gray-100 text-gray-800' 
+                    : 'bg-green-100 text-green-800'
+                }`}>
+                  {user?.subscription?.plan === 'free' ? 'FREE' : 'PRO'}
+                </span>
+              </div>
+              
+              {/* Remaining Minutes Tracker */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div className="flex items-center space-x-2">
+                  <Brain className="w-4 h-4 text-blue-500" />
+                  <div>
+                    <span className="text-gray-600">VAPI Minutes:</span>
+                    <div className="font-medium text-gray-900">
+                      {user?.subscription?.vapiMinutesRemaining || 0} remaining
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center">
-                  <Globe className="w-4 h-4 mr-1 text-green-500" />
-                  <span>Web Speech: Unlimited</span>
+                <div className="flex items-center space-x-2">
+                  <Globe className="w-4 h-4 text-green-500" />
+                  <div>
+                    <span className="text-gray-600">Web Speech:</span>
+                    <div className="font-medium text-gray-900">Unlimited</div>
+                  </div>
                 </div>
                 {user?.subscription?.plan === 'pro' && (
-                  <div className="flex items-center">
-                    <Zap className="w-4 h-4 mr-1 text-yellow-500" />
-                    <span>Balance: ${user?.subscription?.payAsYouGoBalance?.toFixed(2) || '0.00'}</span>
+                  <div className="flex items-center space-x-2">
+                    <Zap className="w-4 h-4 text-yellow-500" />
+                    <div>
+                      <span className="text-gray-600">Balance:</span>
+                      <div className="font-medium text-gray-900">
+                        ${user?.subscription?.payAsYouGoBalance?.toFixed(2) || '0.00'}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -146,9 +217,9 @@ const Dashboard = () => {
             {user?.subscription?.plan === 'free' && (
               <Link
                 to="/subscription"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-lg hover:shadow-xl"
               >
-                Upgrade to Pro
+                Upgrade CTA
               </Link>
             )}
           </div>

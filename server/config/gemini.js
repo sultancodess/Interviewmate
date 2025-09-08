@@ -412,6 +412,18 @@ Example: [{"question": "What is your experience with...", "type": "technical"}]
       console.error('❌ Gemini connection test failed:', error.message)
       this.lastError = error.message
       this.lastErrorTime = Date.now()
+      
+      // Handle specific error types with better messaging
+      if (error.message.includes('overloaded') || error.message.includes('503')) {
+        console.warn('⚠️ Gemini AI is temporarily overloaded - will use fallback evaluation')
+      } else if (error.message.includes('quota') || error.message.includes('429')) {
+        console.warn('⚠️ Gemini AI quota exceeded - using fallback mode')
+      } else if (error.message.includes('API key') || error.message.includes('401')) {
+        console.error('❌ Invalid Gemini API key - check your configuration')
+      } else {
+        console.warn('⚠️ Gemini AI temporarily unavailable - using fallback evaluation')
+      }
+      
       return false
     }
   }

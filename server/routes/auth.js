@@ -1,8 +1,9 @@
 import express from 'express'
+import crypto from 'crypto'
 import { body, validationResult } from 'express-validator'
 import User from '../models/User.js'
 import { protect, sendTokenResponse } from '../middleware/auth.js'
-import { sendWelcomeEmail } from '../config/email.js'
+import { sendWelcomeEmail, sendPasswordResetEmail } from '../config/email.js'
 
 const router = express.Router()
 
@@ -126,18 +127,38 @@ router.post('/google', async (req, res, next) => {
   try {
     const { credential } = req.body
 
-    // In a real implementation, you would verify the Google credential
-    // For now, we'll simulate the process
+    if (!credential) {
+      return res.status(400).json({
+        success: false,
+        message: 'Google credential is required'
+      })
+    }
+
+    // Import Google Auth Library
+    const { OAuth2Client } = await import('google-auth-library')
+    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
+
+    // Verify the Google credential
+    const ticket = await client.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID
+    })
+
+    const payload = ticket.getPayload()
     
-    // This is a placeholder - in production, you'd use Google's OAuth library
-    // to verify the credential and extract user information
-    
-    // Simulated user data (replace with actual Google OAuth verification)
+    if (!payload) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid Google credential'
+      })
+    }
+
     const googleUserData = {
-      googleId: 'google_user_id',
-      email: 'user@example.com',
-      name: 'Google User',
-      profilePicture: 'https://example.com/avatar.jpg'
+      googleId: payload.sub,
+      email: payload.email,
+      name: payload.name,
+      profilePicture: payload.picture,
+      emailVerified: payload.email_verified
     }
 
     // Check if user exists
@@ -149,9 +170,11 @@ router.post('/google', async (req, res, next) => {
     })
 
     if (user) {
-      // Update existing user
+      // Update existing user with Google info if not already set
       if (!user.googleId) {
         user.googleId = googleUserData.googleId
+        user.profilePicture = user.profilePicture || googleUserData.profilePicture
+        user.emailVerified = true
         await user.save()
       }
     } else {
@@ -163,10 +186,24 @@ router.post('/google', async (req, res, next) => {
         profilePicture: googleUserData.profilePicture,
         emailVerified: true
       })
+
+      // Send welcome email (don't wait for it)
+      sendWelcomeEmail(user).catch(error => {
+        console.error('Failed to send welcome email:', error)
+      })
     }
 
     sendTokenResponse(user, 200, res)
   } catch (error) {
+    console.error('Google OAuth error:', error)
+    
+    if (error.message.includes('Token used too early') || error.message.includes('Invalid token')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid Google credential'
+      })
+    }
+    
     next(error)
   }
 })
@@ -224,21 +261,46 @@ router.post('/forgotpassword', [
     const user = await User.findOne({ email: req.body.email })
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'There is no user with that email'
+      // Don't reveal if user exists or not for security
+      return res.status(200).json({
+        success: true,
+        message: 'If an account with that email exists, a password reset link has been sent'
       })
     }
 
-    // In a real implementation, you would:
-    // 1. Generate a reset token
-    // 2. Save it to the user document
-    // 3. Send an email with the reset link
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex')
     
-    res.status(200).json({
-      success: true,
-      message: 'Password reset email sent'
-    })
+    // Hash token and set to resetPasswordToken field
+    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex')
+    
+    // Set expire time (10 minutes)
+    user.passwordResetToken = hashedToken
+    user.passwordResetExpires = Date.now() + 10 * 60 * 1000
+    
+    await user.save({ validateBeforeSave: false })
+
+    // Create reset URL
+    const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`
+
+    try {
+      await sendPasswordResetEmail(user, resetUrl)
+      
+      res.status(200).json({
+        success: true,
+        message: 'Password reset email sent'
+      })
+    } catch (error) {
+      console.error('Email send error:', error)
+      user.passwordResetToken = undefined
+      user.passwordResetExpires = undefined
+      await user.save({ validateBeforeSave: false })
+      
+      return res.status(500).json({
+        success: false,
+        message: 'Email could not be sent'
+      })
+    }
   } catch (error) {
     next(error)
   }
@@ -262,13 +324,28 @@ router.put('/resetpassword/:resettoken', [
       })
     }
 
-    // In a real implementation, you would verify the reset token
-    // For now, we'll return a success message
-    
-    res.status(200).json({
-      success: true,
-      message: 'Password reset successful'
+    // Get hashed token
+    const hashedToken = crypto.createHash('sha256').update(req.params.resettoken).digest('hex')
+
+    const user = await User.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: Date.now() }
     })
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired reset token'
+      })
+    }
+
+    // Set new password
+    user.password = req.body.password
+    user.passwordResetToken = undefined
+    user.passwordResetExpires = undefined
+    await user.save()
+
+    sendTokenResponse(user, 200, res)
   } catch (error) {
     next(error)
   }

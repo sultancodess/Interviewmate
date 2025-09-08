@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import Logo from '../Logo'
 import { 
   Brain,
   Home,
@@ -10,11 +11,14 @@ import {
   User,
   CreditCard,
   HelpCircle,
-  
+  Settings,
   LogOut,
   Menu,
   X,
-  Bell
+  Bell,
+  Zap,
+  Globe,
+  Shield
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -26,13 +30,17 @@ const DashboardLayout = ({ children }) => {
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
-    { name: 'Start Interview', href: '/interview/setup', icon: Play },
-    { name: 'History', href: '/history', icon: History },
-    { name: 'Analytics', href: '/analytics', icon: BarChart3 },
+    { name: 'Setup Interview', href: '/interview/setup', icon: Play },
+    { name: 'Reports', href: '/history', icon: History },
+    { name: 'Performance Analytics', href: '/analytics', icon: BarChart3 },
     { name: 'Profile', href: '/profile', icon: User },
-    { name: 'Subscription', href: '/subscription', icon: CreditCard },
-    { name: 'Help', href: '/help', icon: HelpCircle },
+    { name: 'Settings', href: '/settings', icon: Settings },
   ]
+
+  // Add admin navigation if user is admin
+  if (user?.isAdmin) {
+    navigation.push({ name: 'Admin Panel', href: '/admin', icon: Shield })
+  }
 
   const handleLogout = async () => {
     try {
@@ -64,9 +72,8 @@ const DashboardLayout = ({ children }) => {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200">
-            <Link to="/dashboard" className="flex items-center space-x-2">
-              <Brain className="h-8 w-8 text-blue-600" />
-              <span className="text-xl font-bold text-gray-900">InterviewMate</span>
+            <Link to="/dashboard">
+              <Logo size="md" showText={true} />
             </Link>
             <button
               onClick={() => setSidebarOpen(false)}
