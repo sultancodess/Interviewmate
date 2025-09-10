@@ -1,1 +1,332 @@
-import React, { useState, useEffect } from 'react'\nimport { Link, useParams, useNavigate } from 'react-router-dom'\nimport Logo from '../components/Logo'\nimport { Eye, EyeOff, Loader, CheckCircle, AlertCircle } from 'lucide-react'\nimport { apiService, handleApiResponse } from '../services/api'\nimport toast from 'react-hot-toast'\n\nconst ResetPasswordPage = () => {\n  const { token } = useParams()\n  const navigate = useNavigate()\n  const [formData, setFormData] = useState({\n    password: '',\n    confirmPassword: ''\n  })\n  const [showPassword, setShowPassword] = useState(false)\n  const [showConfirmPassword, setShowConfirmPassword] = useState(false)\n  const [loading, setLoading] = useState(false)\n  const [success, setSuccess] = useState(false)\n  const [tokenValid, setTokenValid] = useState(true)\n\n  useEffect(() => {\n    // Validate token format\n    if (!token || token.length < 32) {\n      setTokenValid(false)\n    }\n  }, [token])\n\n  const handleChange = (e) => {\n    setFormData({\n      ...formData,\n      [e.target.name]: e.target.value\n    })\n  }\n\n  const validateForm = () => {\n    if (!formData.password.trim()) {\n      toast.error('Password is required')\n      return false\n    }\n    \n    if (formData.password.length < 6) {\n      toast.error('Password must be at least 6 characters')\n      return false\n    }\n    \n    if (formData.password !== formData.confirmPassword) {\n      toast.error('Passwords do not match')\n      return false\n    }\n    \n    return true\n  }\n\n  const handleSubmit = async (e) => {\n    e.preventDefault()\n    \n    if (!validateForm()) return\n    \n    setLoading(true)\n\n    try {\n      const result = await handleApiResponse(() => \n        apiService.auth.resetPassword(token, formData.password)\n      )\n      \n      if (result.success) {\n        setSuccess(true)\n        toast.success('Password reset successful!')\n        \n        // Redirect to login after 3 seconds\n        setTimeout(() => {\n          navigate('/login', { \n            state: { message: 'Password reset successful. Please sign in with your new password.' }\n          })\n        }, 3000)\n      } else {\n        if (result.error.includes('Invalid') || result.error.includes('expired')) {\n          setTokenValid(false)\n        }\n        toast.error(result.error || 'Failed to reset password')\n      }\n    } catch (error) {\n      toast.error('Something went wrong. Please try again.')\n    } finally {\n      setLoading(false)\n    }\n  }\n\n  const getPasswordStrength = (password) => {\n    if (password.length === 0) return { strength: 0, label: '', color: '' }\n    if (password.length < 6) return { strength: 1, label: 'Weak', color: 'text-red-500' }\n    if (password.length < 10) return { strength: 2, label: 'Fair', color: 'text-yellow-500' }\n    if (password.length >= 10 && /[A-Z]/.test(password) && /[0-9]/.test(password)) {\n      return { strength: 3, label: 'Strong', color: 'text-green-500' }\n    }\n    return { strength: 2, label: 'Fair', color: 'text-yellow-500' }\n  }\n\n  const passwordStrength = getPasswordStrength(formData.password)\n\n  // Invalid token UI\n  if (!tokenValid) {\n    return (\n      <div className=\"min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8\">\n        <div className=\"max-w-md w-full space-y-8\">\n          {/* Header */}\n          <div className=\"text-center\">\n            <Link to=\"/\" className=\"flex justify-center mb-6\">\n              <Logo size=\"lg\" showText={true} />\n            </Link>\n            <div className=\"mb-6\">\n              <div className=\"mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4\">\n                <AlertCircle className=\"w-8 h-8 text-red-600\" />\n              </div>\n              <h2 className=\"text-3xl font-bold text-gray-900 mb-2\">Invalid Reset Link</h2>\n              <p className=\"text-gray-600\">This password reset link is invalid or has expired.</p>\n            </div>\n          </div>\n\n          {/* Error Message */}\n          <div className=\"bg-white py-8 px-6 shadow-lg rounded-lg border\">\n            <div className=\"text-center space-y-4\">\n              <p className=\"text-gray-700\">\n                Password reset links expire after 1 hour for security reasons.\n              </p>\n              \n              <div className=\"space-y-3\">\n                <Link\n                  to=\"/forgot-password\"\n                  className=\"w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors\"\n                >\n                  Request New Reset Link\n                </Link>\n                \n                <Link\n                  to=\"/login\"\n                  className=\"w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors\"\n                >\n                  Back to Sign In\n                </Link>\n              </div>\n            </div>\n          </div>\n        </div>\n      </div>\n    )\n  }\n\n  // Success UI\n  if (success) {\n    return (\n      <div className=\"min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8\">\n        <div className=\"max-w-md w-full space-y-8\">\n          {/* Header */}\n          <div className=\"text-center\">\n            <Link to=\"/\" className=\"flex justify-center mb-6\">\n              <Logo size=\"lg\" showText={true} />\n            </Link>\n            <div className=\"mb-6\">\n              <div className=\"mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4\">\n                <CheckCircle className=\"w-8 h-8 text-green-600\" />\n              </div>\n              <h2 className=\"text-3xl font-bold text-gray-900 mb-2\">Password Reset!</h2>\n              <p className=\"text-gray-600\">Your password has been successfully updated.</p>\n            </div>\n          </div>\n\n          {/* Success Message */}\n          <div className=\"bg-white py-8 px-6 shadow-lg rounded-lg border\">\n            <div className=\"text-center space-y-4\">\n              <p className=\"text-gray-700\">\n                You can now sign in with your new password.\n              </p>\n              \n              <p className=\"text-sm text-gray-500\">\n                Redirecting to sign in page in 3 seconds...\n              </p>\n              \n              <Link\n                to=\"/login\"\n                className=\"w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors\"\n              >\n                Sign In Now\n              </Link>\n            </div>\n          </div>\n        </div>\n      </div>\n    )\n  }\n\n  // Reset form UI\n  return (\n    <div className=\"min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8\">\n      <div className=\"max-w-md w-full space-y-8\">\n        {/* Header */}\n        <div className=\"text-center\">\n          <Link to=\"/\" className=\"flex justify-center mb-6\">\n            <Logo size=\"lg\" showText={true} />\n          </Link>\n          <h2 className=\"text-3xl font-bold text-gray-900 mb-2\">Reset your password</h2>\n          <p className=\"text-gray-600\">Enter your new password below.</p>\n        </div>\n\n        {/* Reset Form */}\n        <div className=\"bg-white py-8 px-6 shadow-lg rounded-lg border\">\n          <form className=\"space-y-6\" onSubmit={handleSubmit}>\n            <div>\n              <label htmlFor=\"password\" className=\"block text-sm font-medium text-gray-700 mb-2\">\n                New password\n              </label>\n              <div className=\"relative\">\n                <input\n                  id=\"password\"\n                  name=\"password\"\n                  type={showPassword ? 'text' : 'password'}\n                  autoComplete=\"new-password\"\n                  required\n                  value={formData.password}\n                  onChange={handleChange}\n                  className=\"w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent\"\n                  placeholder=\"Enter your new password\"\n                />\n                <button\n                  type=\"button\"\n                  className=\"absolute inset-y-0 right-0 pr-3 flex items-center\"\n                  onClick={() => setShowPassword(!showPassword)}\n                >\n                  {showPassword ? (\n                    <EyeOff className=\"h-5 w-5 text-gray-400\" />\n                  ) : (\n                    <Eye className=\"h-5 w-5 text-gray-400\" />\n                  )}\n                </button>\n              </div>\n              {formData.password && (\n                <div className=\"mt-2\">\n                  <div className=\"flex items-center space-x-2\">\n                    <div className=\"flex-1 bg-gray-200 rounded-full h-2\">\n                      <div\n                        className={`h-2 rounded-full transition-all duration-300 ${\n                          passwordStrength.strength === 1 ? 'bg-red-500 w-1/3' :\n                          passwordStrength.strength === 2 ? 'bg-yellow-500 w-2/3' :\n                          passwordStrength.strength === 3 ? 'bg-green-500 w-full' : 'w-0'\n                        }`}\n                      />\n                    </div>\n                    <span className={`text-xs font-medium ${passwordStrength.color}`}>\n                      {passwordStrength.label}\n                    </span>\n                  </div>\n                </div>\n              )}\n            </div>\n\n            <div>\n              <label htmlFor=\"confirmPassword\" className=\"block text-sm font-medium text-gray-700 mb-2\">\n                Confirm new password\n              </label>\n              <div className=\"relative\">\n                <input\n                  id=\"confirmPassword\"\n                  name=\"confirmPassword\"\n                  type={showConfirmPassword ? 'text' : 'password'}\n                  autoComplete=\"new-password\"\n                  required\n                  value={formData.confirmPassword}\n                  onChange={handleChange}\n                  className=\"w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent\"\n                  placeholder=\"Confirm your new password\"\n                />\n                <button\n                  type=\"button\"\n                  className=\"absolute inset-y-0 right-0 pr-3 flex items-center\"\n                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}\n                >\n                  {showConfirmPassword ? (\n                    <EyeOff className=\"h-5 w-5 text-gray-400\" />\n                  ) : (\n                    <Eye className=\"h-5 w-5 text-gray-400\" />\n                  )}\n                </button>\n              </div>\n              {formData.confirmPassword && (\n                <div className=\"mt-1 flex items-center\">\n                  {formData.password === formData.confirmPassword ? (\n                    <div className=\"flex items-center text-green-600\">\n                      <CheckCircle className=\"h-4 w-4 mr-1\" />\n                      <span className=\"text-xs\">Passwords match</span>\n                    </div>\n                  ) : (\n                    <span className=\"text-xs text-red-600\">Passwords do not match</span>\n                  )}\n                </div>\n              )}\n            </div>\n\n            <div>\n              <button\n                type=\"submit\"\n                disabled={loading}\n                className=\"group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors\"\n              >\n                {loading ? (\n                  <Loader className=\"w-5 h-5 animate-spin\" />\n                ) : (\n                  'Reset password'\n                )}\n              </button>\n            </div>\n          </form>\n        </div>\n\n        {/* Back to login */}\n        <div className=\"text-center\">\n          <Link\n            to=\"/login\"\n            className=\"text-sm text-blue-600 hover:text-blue-500 font-medium\"\n          >\n            Back to Sign In\n          </Link>\n        </div>\n      </div>\n    </div>\n  )\n}\n\nexport default ResetPasswordPage"
+import React, { useState, useEffect } from 'react'
+import { Link, useParams, useNavigate } from 'react-router-dom'
+import Logo from '../components/Logo'
+import { Eye } from 'lucide-react'
+import { EyeOff } from 'lucide-react'
+import { Loader } from 'lucide-react'
+import { CheckCircle } from 'lucide-react'
+import { AlertCircle } from 'lucide-react'
+import { apiService, handleApiResponse } from '../services/api'
+import toast from 'react-hot-toast'
+
+const ResetPasswordPage = () => {
+  const { token } = useParams()
+  const navigate = useNavigate()
+  const [formData, setFormData] = useState({
+    password: '',
+    confirmPassword: ''
+  })
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState(false)
+  const [tokenValid, setTokenValid] = useState(true)
+
+  useEffect(() => {
+    // Validate token format
+    if (!token || token.length < 32) {
+      setTokenValid(false)
+    }
+  }, [token])
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    })
+  }
+
+  const validateForm = () => {
+    if (!formData.password.trim()) {
+      toast.error('Password is required')
+      return false
+    }
+    
+    if (formData.password.length < 6) {
+      toast.error('Password must be at least 6 characters')
+      return false
+    }
+    
+    if (formData.password !== formData.confirmPassword) {
+      toast.error('Passwords do not match')
+      return false
+    }
+    
+    return true
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    
+    if (!validateForm()) return
+    
+    setLoading(true)
+
+    try {
+      const result = await handleApiResponse(() => 
+        apiService.auth.resetPassword(token, formData.password)
+      )
+      
+      if (result.success) {
+        setSuccess(true)
+        toast.success('Password reset successful!')
+        
+        // Redirect to login after 3 seconds
+        setTimeout(() => {
+          navigate('/login', { 
+            state: { message: 'Password reset successful. Please sign in with your new password.' }
+          })
+        }, 3000)
+      } else {
+        if (result.error.includes('Invalid') || result.error.includes('expired')) {
+          setTokenValid(false)
+        }
+        toast.error(result.error || 'Failed to reset password')
+      }
+    } catch (error) {
+      toast.error('Something went wrong. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const getPasswordStrength = (password) => {
+    if (password.length === 0) return { strength: 0, label: '', color: '' }
+    if (password.length < 6) return { strength: 1, label: 'Weak', color: 'text-red-500' }
+    if (password.length < 10) return { strength: 2, label: 'Fair', color: 'text-yellow-500' }
+    if (password.length >= 10 && /[A-Z]/.test(password) && /[0-9]/.test(password)) {
+      return { strength: 3, label: 'Strong', color: 'text-green-500' }
+    }
+    return { strength: 2, label: 'Fair', color: 'text-yellow-500' }
+  }
+
+  const passwordStrength = getPasswordStrength(formData.password)
+
+  // Invalid token UI
+  if (!tokenValid) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-8">
+          {/* Header */}
+          <div className="text-center">
+            <Link to="/" className="flex justify-center mb-6">
+              <Logo size="lg" showText={true} />
+            </Link>
+            <div className="mb-6">
+              <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                <AlertCircle className="w-8 h-8 text-red-600" />
+              </div>
+              <h2 className="text-3xl font-bold text-gray-900 mb-2">Invalid Reset Link</h2>
+              <p className="text-gray-600">This password reset link is invalid or has expired.</p>
+            </div>
+          </div>
+
+          {/* Error Message */}
+          <div className="bg-white py-8 px-6 shadow-lg rounded-lg border">
+            <div className="text-center space-y-4">
+              <p className="text-gray-700">
+                Password reset links expire after 1 hour for security reasons.
+              </p>
+              
+              <div className="space-y-3">
+                <Link
+                  to="/forgot-password"
+                  className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                >
+                  Request New Reset Link
+                </Link>
+                
+                <Link
+                  to="/login"
+                  className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                >
+                  Back to Sign In
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Success UI
+  if (success) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-8">
+          {/* Header */}
+          <div className="text-center">
+            <Link to="/" className="flex justify-center mb-6">
+              <Logo size="lg" showText={true} />
+            </Link>
+            <div className="mb-6">
+              <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                <CheckCircle className="w-8 h-8 text-green-600" />
+              </div>
+              <h2 className="text-3xl font-bold text-gray-900 mb-2">Password Reset!</h2>
+              <p className="text-gray-600">Your password has been successfully updated.</p>
+            </div>
+          </div>
+
+          {/* Success Message */}
+          <div className="bg-white py-8 px-6 shadow-lg rounded-lg border">
+            <div className="text-center space-y-4">
+              <p className="text-gray-700">
+                You can now sign in with your new password.
+              </p>
+              
+              <p className="text-sm text-gray-500">
+                Redirecting to sign in page in 3 seconds...
+              </p>
+              
+              <Link
+                to="/login"
+                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              >
+                Sign In Now
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Reset form UI
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
+        {/* Header */}
+        <div className="text-center">
+          <Link to="/" className="flex justify-center mb-6">
+            <Logo size="lg" showText={true} />
+          </Link>
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">Reset your password</h2>
+          <p className="text-gray-600">Enter your new password below.</p>
+        </div>
+
+        {/* Reset Form */}
+        <div className="bg-white py-8 px-6 shadow-lg rounded-lg border">
+          <form className="space-y-6" onSubmit={handleSubmit}>
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                New password
+              </label>
+              <div className="relative">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  required
+                  value={formData.password}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter your new password"
+                />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5 text-gray-400" />
+                  ) : (
+                    <Eye className="h-5 w-5 text-gray-400" />
+                  )}
+                </button>
+              </div>
+              {formData.password && (
+                <div className="mt-2">
+                  <div className="flex items-center space-x-2">
+                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full transition-all duration-300 ${
+                          passwordStrength.strength === 1 ? 'bg-red-500 w-1/3' :
+                          passwordStrength.strength === 2 ? 'bg-yellow-500 w-2/3' :
+                          passwordStrength.strength === 3 ? 'bg-green-500 w-full' : 'w-0'
+                        }`}
+                      />
+                    </div>
+                    <span className={`text-xs font-medium ${passwordStrength.color}`}>
+                      {passwordStrength.label}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                Confirm new password
+              </label>
+              <div className="relative">
+                <input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  required
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Confirm your new password"
+                />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-5 w-5 text-gray-400" />
+                  ) : (
+                    <Eye className="h-5 w-5 text-gray-400" />
+                  )}
+                </button>
+              </div>
+              {formData.confirmPassword && (
+                <div className="mt-1 flex items-center">
+                  {formData.password === formData.confirmPassword ? (
+                    <div className="flex items-center text-green-600">
+                      <CheckCircle className="h-4 w-4 mr-1" />
+                      <span className="text-xs">Passwords match</span>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-red-600">Passwords do not match</span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {loading ? (
+                  <Loader className="w-5 h-5 animate-spin" />
+                ) : (
+                  'Reset password'
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* Back to login */}
+        <div className="text-center">
+          <Link
+            to="/login"
+            className="text-sm text-blue-600 hover:text-blue-500 font-medium"
+          >
+            Back to Sign In
+          </Link>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default ResetPasswordPage

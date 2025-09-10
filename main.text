@@ -1,0 +1,472 @@
+**Product Name:** Interviewmate
+
+> InterviewMate is an AI-powered mock interview platform that simulates real interviews through voice-based, real-time conversations with AI interviewers. It offers dynamic questioning, instant feedback, performance analytics, and professional reports to help candidates prepare for actual interviews with confidence.
+> 
+
+---
+
+## 🎯 **Purpose**
+
+The platform aims to empower job seekers by delivering **realistic, professional-grade mock interviews** that:
+
+- Mimic HR, technical, and managerial interviews.
+- Adapt dynamically with **cross-questions and scenario-based questioning**.
+- Provide **real-time performance insights** and **shareable final reports**.
+- Help users **track progress and improve specific skills over time**.
+
+---
+
+## 🧩 **Core Features**
+
+### 1. **Authentication & User Access**
+
+- Email/Password Login (JWT-based authentication)
+- Google OAuth integration (MongoDB)
+
+---
+
+### 2. **User Dashboard**
+
+- Personalized welcome message with avatar and username
+- Quick action cards:
+    - **✅ Start Interview**
+    - **📊 View Past Reports**
+    - **📈 Performance Analytics**
+    - **⏳ Remaining Minutes Tracker**
+- Sidebar Navigation: Dashboard | Setup Interview | Reports | Profile | Settings
+- Subscription badge (Free / Pro) + Upgrade CTA
+
+---
+
+### 
+
+## 🚀 **3. Interview Setup**
+
+### 🖥️ **Frontend (User-facing Form)**
+
+- **Candidate Details**
+    - Candidate Name
+    - Upload Resume (PDF/DOC)(OPTIPNAL)
+    - Upload Custom Question Set (Optional)
+- **Interview Context**
+    - Interview Type: HR / Technical / Managerial / Custom
+    - Role: e.g., Backend Developer, Data Scientist
+    - Company: (e.g., TCS, Amazon)
+    - JD (Job Description) — free-text or PDF upload
+- **Interview Configurations**
+    - Mode Selection:
+        - **Lite (Web Speech API)** → Basic Q&A with captions
+        - **Pro (Vapi AI)** → Real-time adaptive AI interviewer
+    - Topics: User CAN TYPES
+    - Difficulty Level: Easy / Medium / Hard
+    - Number of Questions
+    - Duration of Interview (Minutes)
+
+---
+
+### ⚙️ **Backend Logic**
+
+1. **Form Validation Layer**
+    - Ensure required fields (candidate name, mode, type, duration).
+    - Parse Resume + JD
+    - Normalize data into structured format (JSON).
+2. **System Prompt Generator**
+    - **Lite Mode (Web Speech API):**
+        - Converts form inputs into a **Gemini-compatible system prompt**.
+        - Example: *“Conduct a 30-minute technical interview for a Backend Developer role at Amazon. Focus on system design, databases, and algorithms. Difficulty: Medium. Use candidate’s resume for personalization.”*
+    - **Pro Mode (Vapi AI):**
+        - Injects **setup data → Vapi assistant persona** (HR, Tech,).
+        - Generates **dynamic questioning strategy** (adaptive questioning).
+        - Stores **variables**: {Role, JD, Topics, Difficulty, Duration}.
+3. **Resume + JD Parsing (Optional but Scalable)**
+    - AI extracts skills, keywords, and projects.
+    - Adds them into system prompt for **personalized interviews**.
+    - Example: *If resume mentions Kubernetes → interviewer asks DevOps questions.*
+4. **Configuration Persistence**
+    - Store setup in **Interview Config DB**:
+        
+        ```json
+        {
+          "candidate_name": "John Doe",
+          "mode": "Pro",
+          "role": "Backend Developer",
+          "type": "Technical",
+          "company": "Amazon",
+          "topics": ["System Design", "Databases"],
+          "difficulty": "Medium",
+          "resume_id": "file_12345",
+          "jd_id": "jd_56789",
+          "num_questions": 10,
+          "duration": 30,
+          "custom_set_id": null}
+        
+        ```
+        
+    - Enables **retry, resume, and analytics**.
+
+---
+
+### 🏗️ **Example Flow**
+
+1. User fills form → hits **Submit**.
+2. Backend validates inputs + parses Resume/JD asynchronously.
+3. Generates **System Prompt** (Lite) or **Persona Injection** (Pro).
+4. Saves config to DB + returns **Interview ID**.
+5. Candidate redirected to **Minutes Validation → Start Interview** flow.
+
+---
+
+⚡ With this design, you get:
+
+- **Customizable** (resume-based, JD-based, topics-based).
+- **Scalable** (async parsing, prompt templating, DB persistence).
+- **Seamless for Lite & Pro** (shared setup, diverging execution).
+
+---
+
+## 🚀 **4. Real-Time Interview Interface (Scalable Design)**
+
+### 🖥️ **Frontend (Candidate UI)**
+
+A **Zoom/Google Meet–style interface** with:
+
+- 🎤 **Audio Controls** → Mute/Unmute
+- 📹 **Optional Video Support** → Candidate’s camera + AI avatar interviewer
+- 📝 **Real-time Captions** → Live transcription
+- 👥 **Interviewer Persona Selector** → HR / Technical / Managerial
+- 🔄 **Adaptive Question Display** → Text overlay of current & follow-up questions
+- ⏱️ **Timer** → Remaining interview time
+- 📊 **Progress Bar** → Number of questions asked vs planned
+
+---
+
+### ⚙️ **Backend Logic**
+
+1. **Voice Interaction Layer**
+    - **Lite Mode:**
+        - Browser mic → Web Speech API → text → Gemini → next question.
+    - **Pro Mode (Vapi AI):**
+        - Candidate voice → Vapi → Real-time AI interviewer response.
+        - Persona (HR/Tech/Managerial) injected dynamically.
+2. **Real-Time Transcription Engine**
+    - Powered by  **Vapi Transcription / Web Speech API**.
+    - Runs **parallel to interview** for live captions.
+    - Provides **100% accurate transcript** stored in DB.
+3. **Adaptive Questioning**
+    - **Lite:** Gemini adjusts next question based on transcript.
+    - **Pro:** Vapi AI uses persona logic to cross-question, probe deeper.
+    - Example:
+        - Candidate: *“I used Kubernetes for deployment.”*
+        - AI: *“Great. Can you explain how you handled scaling in Kubernetes?”*
+4. **Cross-Questioning / Scenario Simulation**
+    - Based on candidate’s answers, system branches into scenario-based questions.
+    - Persona-specific:
+        - HR → Behavioral scenarios (*“How do you handle conflict in teams?”*)
+        - Tech → Problem-solving scenarios (*“Debug this faulty code snippet.”*)
+        - Managerial → Strategy-driven (*“How would you allocate resources in a crisis?”*)
+5. **Session Management**
+    - Interview ID → links candidate, mode, persona, config.
+    - Live events pushed via **WebSockets** (for captions + interviewer actions).
+    - All data stored in **Interview Session DB**:
+        
+        ```json
+        {
+          "interview_id": "int_123",
+          "candidate_id": "cand_456",
+          "mode": "Pro",
+          "persona": "Technical",
+          "transcript": "...",
+          "events": [
+            {"timestamp": "...", "question": "...", "answer": "..."}
+          ]
+        }
+        
+        ```
+        
+
+### 🏗️ **Example Flow**
+
+1. Candidate joins interface → selects mic/video.
+2. AI persona introduced (*“Hi, I’m your Technical Interviewer today.”*).
+3. Candidate answers → real-time transcript generated.
+4. AI adapts & asks follow-ups dynamically.
+5. Session recorded (audio + text + metadata).
+6. On completion → system passes transcript to **Evaluation Pipeline**.
+
+---
+
+⚡ With this design, you get:
+
+- **Lite = cost-effective practice mode**
+- **Pro = immersive, adaptive simulation**
+
+## 📊 **5. AI Evaluation & Reporting (Scalable Design)**
+
+### ⚙️ **Evaluation Pipeline**
+
+1. **Transcript & Metadata Collection**
+    - After interview ends, transcript + structured Q/A + timestamps are stored.
+    - Metadata includes:
+        
+        ```json
+        {
+          "interview_id": "int_123",
+          "candidate_id": "cand_456",
+          "persona": "Technical",
+          "duration": "35m",
+          "questions": 12,
+          "mode": "Pro"
+        }
+        
+        ```
+        
+2. **Queue-Based Job Dispatch**
+    - `evaluation_job` pushed to **Kafka / RabbitMQ / SQS**.
+    - Ensures scalable async processing.
+    - Workers consume jobs at scale (auto-scaling with demand).
+3. **Gemini AI Evaluation**
+    - Structured rubric prompt passed:
+        - Categories: Communication, Technical Knowledge, Problem-Solving, Confidence, etc.
+        - Score normalization (0–100).
+        - JSON output enforced with schema validation.
+    - Example Output:
+        
+        ```json
+        {
+          "overall_score": 78,
+          "skills": {
+            "communication": 82,
+            "technical": 74,
+            "problem_solving": 80,
+            "confidence": 75
+          },
+          "strengths": ["Clear communication", "Good debugging approach"],
+          "weaknesses": ["Needs deeper knowledge of system design"],
+          "improvement_plan": [
+            "Practice more system design mock interviews",
+            "Work on explaining trade-offs in answers"
+          ]
+        }
+        
+        ```
+        
+4. **Validation Layer**
+    - Schema enforced (no malformed output).
+    - Retry mechanism if Gemini fails or returns incomplete JSON.
+
+---
+
+### 📄 **Report Generation**
+
+1. **Storage**
+    - Evaluation stored in `reports` collection.
+    - Linked by `interview_id`.
+2. **Report Renderer (Worker Service)**
+    - Generates:
+        - **PDF Report** → Puppeteer/Playwright with custom template.
+        - **JSON API Response** → For dashboards & analytics.
+        - **Visual Charts** → Radar (skills overview), Bar chart (comparisons).
+3. **Delivery**
+    - Email with PDF attachment / link.
+    - Dashboard “Reports” tab with:
+        - Overall Score (progress circle).
+        - Radar chart for skill breakdown.
+        - Strengths/Weaknesses cards.
+        - Improvement Plan list.
+
+---
+
+---
+
+### 🏗️ **User Flow Example**
+
+1. Candidate finishes interview.
+2. Transcript stored + job queued.
+3. Gemini AI evaluates → structured JSON saved.
+4. Report renderer generates **PDF + charts + dashboard view**.
+5. Candidate notified → *“Your report is ready.”*
+6. Candidate views report → can share via public link.
+
+---
+
+---
+
+## 📑 **6. Final Report Page**
+
+### 🎯 Features
+
+- **Professional, Polished Report Layout**
+    - Header: Candidate Name, Role, Interview Type, Date.
+    - Overall Score (circular progress indicator).
+    - Skill-wise Radar + Bar charts.
+    - Strengths, Weaknesses, and Improvement Plan in structured cards.
+- **Downloadable PDF**
+    - `Download PDF` button → uses **Puppeteer/Playwright backend** (better than jsPDF for complex styling).
+    - PDF stored in Object Storage (S3/Cloudflare R2).
+- **Sharing Options**
+    - `Share to LinkedIn` → Auto-generates summary post + PDF link.
+    - `Share to X (Twitter)` → Score + Link snippet.
+    - `Copy Public Link` → sharable slug (e.g., `interviewmate.com/r/abc123`).
+- **Persistent Storage**
+    - Report is linked to `interview_id` and available in **History Tab**.
+
+---
+
+## 📜 **7. Interview History**
+
+### 🎯 Features
+
+- **List of All Past Interviews**
+    - Table/List UI with: Role | Interview Type | Mode (Lite/Pro) | Date | Score.
+    - Infinite scroll or pagination for scalability.
+- **Filters & Search**
+    - Filter by Role (Backend, HR, etc.).
+    - Filter by Date range.
+    - Filter by Type (HR / Technical / Managerial).
+    - Filter by Score range (e.g., 80+).
+- **Quick Actions**
+    - `View Report` → opens Final Report Page.
+    - `Download PDF` → direct file fetch from Object Storage.
+    - `Delete Interview` → soft delete (mark archived, purge after X days).
+
+### ⚙️ Scalability Enhancements
+
+- Reports stored in **Object Storage** + indexed metadata in DB.
+- History view loads **metadata only** first (fast), then lazy-loads charts when user opens a report.
+- Archived interviews can be moved to **cold storage** after 6 months to reduce costs.
+
+---
+
+## 👤 **8. User Profile & Settings**
+
+### 🎯 Features
+
+- **Profile Management**
+    - Update Name, Email, Profile Picture.
+    - Profile pic stored in Object Storage (with signed URLs).
+- **Theme & UI Settings**
+    - Light / Dark Mode toggle (saved in DB + localStorage).
+- **Subscription & Billing**
+    - View Current Plan (Lite / Pro / Enterprise).
+    - Upgrade Plan (integration with Razorpay Checkout).
+    - View minutes balance & transaction history.
+- **Account Management**
+    - Delete Account → confirmation modal → cascade delete (reports, interviews, transcripts).
+    - GDPR compliance: purge PII + anonymize transcripts.
+
+---
+
+## 🔐 Scalability & Reliability Notes
+
+- **History & Report System** → optimized for long-term storage (millions of interviews per tenant).
+- **CDN-backed public share links** → ensures fast report loading globally.
+- **Billing & Subscription Hooks** → synced with Razorpay + internal ledger for consistency.
+- **Account deletion flow** → asynchronous job ensures safe cleanup at scale.
+
+---
+
+⚡Result: With these modules, your app now has a **complete, professional SaaS-grade flow** → from **Interview → Report → History → Profile/Subscription**.
+
+---
+
+## **9. Subscription & Payment**
+
+### 🎯 **Core Features**
+
+1. **Payment Integration (Razorpay)**
+    - Frontend calls `POST /billing/orders` → creates Razorpay order via BFF.
+    - BFF returns `orderId` → Razorpay Checkout UI invoked in FE.
+    - On success, Razorpay sends **Webhook → BFF verifies HMAC → Ledger updated**.
+2. **Minute-Based Credit System**
+    - **Free Plan:**
+        - 30 minutes/month auto-credited (non-carryover).
+        - Limited PDF exports (e.g., max 2/month).
+    - **Pro Plan (Pay-as-you-go):**
+        - Buy additional minutes anytime.
+        - Each payment = credits ledger with `+X` minutes.
+        - Balance decremented during interview sessions (heartbeat metering).
+3. **Plans & Pricing (example)**
+    - Free → 30 min/month + 5 reports.
+    - Pro → ₹199 = +60 mins, ₹499 = +180 mins, ₹999 = +400 mins.
+    - Enterprise (custom plan) → admin-configurable (bulk minutes).
+4. **Ledger System (Immutable, Auditable)**
+    - Every credit/debit recorded as immutable entry.
+    - Running balance = sum of credits − sum of debits.
+    - Supports **refunds/chargebacks** (negative credits).
+    - Exactly-once processing with unique transaction IDs.
+
+---
+
+### ⚙️ **Scalability Enhancements**
+
+- **Webhook Inbox**: Razorpay events (payment success, refund) stored in `webhookInbox` → worker processes idempotently.
+- **Usage Metering**: Heartbeat-based (every 5s) → ensures fair consumption.
+- **Ledger as Source of Truth**: Dashboard reads from ledger, not session timers (prevents fraud/mismatched balances).
+- **Multi-Tenant Ready**: Each `tenantId` isolated ledger & subscription record.
+
+---
+
+### 📄 **User Flows**
+
+### 1. Buying Minutes (Pro Plan)
+
+1. User clicks **“Buy Minutes”** in Dashboard.
+2. Chooses pack → `POST /billing/orders`.
+3. Razorpay Checkout → Payment → Success.
+4. Razorpay webhook → BFF verifies → credits ledger.
+5. Dashboard auto-updates **minutes balance** via WebSocket/refresh.
+
+### 2. Free Plan Auto-Refresh
+
+- Cron job monthly → auto-credit 30 minutes to free users.
+- If user upgrades, auto-switch to Pro ledger.
+
+### 3. Refund / Chargeback
+
+- Razorpay webhook → ledger entry with `−X` minutes.
+- Balance recalculated automatically.
+
+---
+
+### 📊 **Dashboard Subscription UI**
+
+- Current Plan: Free / Pro.
+- Balance: `125 mins left`.
+- Progress bar / gauge for usage this month.
+- History: List of top-ups (amount, minutes, date).
+- CTA buttons: `Buy Minutes`, `Upgrade Plan`, `View Invoices`.
+
+---
+
+⚡ This setup makes your subscription system:
+
+- **Flexible** (supports Free, Pro, Enterprise).
+- **Auditable** (ledger prevents fraud).
+- **Scalable** (webhooks + workers handle thousands of concurrent payments).
+
+---
+
+### 10. **Admin Panel**
+
+- Manage Users & Interviews
+- View Platform Analytics
+- Edit & Update Interview Templates
+- Track Payments
+
+---
+
+## ⚙️ **Technical Stack**
+
+| Layer | Technology |
+| --- | --- |
+| Frontend | React.js (Vite + JSX) + Tailwind CSS + Framer Motion |
+| Backend | Node.js + Express |
+| Auth |  JWT |
+| Database | MongoDB Atlas |
+| Realtime Interview | Vapi AI |
+| Evaluation | Gemini AI |
+| Charts | Recharts / Chart.js |
+| PDF Export | jsPDF |
+| Payment | Razorpay |
+
+![image.png](attachment:9129d7f5-9933-46fc-99c7-ecc65304f85c:image.png)

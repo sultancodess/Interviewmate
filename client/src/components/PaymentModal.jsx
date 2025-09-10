@@ -1,5 +1,9 @@
 import React, { useState } from 'react'
-import { X, CreditCard, Shield, Check, Zap } from 'lucide-react'
+import { X } from 'lucide-react'
+import { CreditCard } from 'lucide-react'
+import { Shield } from 'lucide-react'
+import { Check } from 'lucide-react'
+import { Zap } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
 

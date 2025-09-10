@@ -1,5 +1,8 @@
 import React, { useState } from 'react'
-import { X, Linkedin, Copy, CheckCircle } from 'lucide-react'
+import { X } from 'lucide-react'
+import { Linkedin } from 'lucide-react'
+import { Copy } from 'lucide-react'
+import { CheckCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const LinkedInShare = ({ interview, onClose }) => {

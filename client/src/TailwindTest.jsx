@@ -1,5 +1,7 @@
 import React from 'react'
-import { Brain, Check, Star } from 'lucide-react'
+import { Brain } from 'lucide-react'
+import { Check } from 'lucide-react'
+import { Star } from 'lucide-react'
 
 const TailwindTest = () => {
   return (

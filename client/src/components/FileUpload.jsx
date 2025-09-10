@@ -1,5 +1,10 @@
 import React, { useState, useRef } from 'react'
-import { Upload, File, X, CheckCircle, AlertCircle, Loader } from 'lucide-react'
+import { Upload } from 'lucide-react'
+import { File } from 'lucide-react'
+import { X } from 'lucide-react'
+import { CheckCircle } from 'lucide-react'
+import { AlertCircle } from 'lucide-react'
+import { Loader } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiService, handleApiResponse } from '../services/api'
 

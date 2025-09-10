@@ -3,7 +3,9 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import Logo from '../components/Logo'
 import GoogleOAuthButton from '../components/GoogleOAuthButton'
-import { Eye, EyeOff, Loader } from 'lucide-react'
+import { Eye } from 'lucide-react'
+import { EyeOff } from 'lucide-react'
+import { Loader } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const LoginPage = () => {

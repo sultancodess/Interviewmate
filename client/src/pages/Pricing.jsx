@@ -1,7 +1,10 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import DashboardLayout from '../components/Layout/DashboardLayout'
-import { CheckCircle, Brain, Globe,  Star } from 'lucide-react'
+import { CheckCircle } from 'lucide-react'
+import { Brain } from 'lucide-react'
+import { Globe } from 'lucide-react'
+import { Star } from 'lucide-react'
 
 const Pricing = () => {
   const plans = [

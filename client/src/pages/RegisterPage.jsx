@@ -3,7 +3,10 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import Logo from '../components/Logo'
 import GoogleOAuthButton from '../components/GoogleOAuthButton'
-import { Eye, EyeOff, Loader, CheckCircle } from 'lucide-react'
+import { Eye } from 'lucide-react'
+import { EyeOff } from 'lucide-react'
+import { Loader } from 'lucide-react'
+import { CheckCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const RegisterPage = () => {
