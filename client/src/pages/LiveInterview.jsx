@@ -40,7 +40,9 @@ const LiveInterview = () => {
   const [callStatus, setCallStatus] = useState('idle') // idle, connecting, connected, ended
   const [_isConnected, _setIsConnected] = useState(false)
   const [currentQuestion, setCurrentQuestion] = useState('')
+  const [followUpQuestions, setFollowUpQuestions] = useState([])
   const [transcript, setTranscript] = useState('')
+  const [transcriptHistory, setTranscriptHistory] = useState([])
   
   // Controls state
   const [isMuted, setIsMuted] = useState(false)
@@ -97,6 +99,9 @@ const LiveInterview = () => {
         throw new Error('Failed to initialize VAPI service')
       }
       
+      // Generate potential follow-up questions based on interview type
+      generateFollowUpQuestions(_interviewData)
+      
       // Initialize Web Speech Service
       const webSpeechInitialized = webSpeechService.initialize()
       if (webSpeechInitialized) {
@@ -104,6 +109,10 @@ const LiveInterview = () => {
           onTranscript: (transcriptData) => {
             if (transcriptData.isFinal) {
               setTranscript(prev => prev + ' ' + transcriptData.text)
+              
+              // Update transcript history based on role
+              const speaker = transcriptData.role === 'interviewer' ? 'AI Interviewer' : 'You'
+              updateTranscriptHistory(speaker, transcriptData.text)
             }
           },
           onError: (error) => {
@@ -113,6 +122,9 @@ const LiveInterview = () => {
           onQuestionGenerated: (question) => {
             setCurrentQuestion(question)
             setQuestionCount(prev => prev + 1)
+            
+            // Update transcript history with AI question
+            updateTranscriptHistory('AI Interviewer', question)
           }
         })
       }
@@ -143,10 +155,18 @@ const LiveInterview = () => {
           console.log('VAPI message:', message)
           if (message.type === 'transcript') {
             setTranscript(prev => prev + ' ' + message.text)
+            // Update transcript history with AI response
+            if (message.role === 'assistant') {
+              updateTranscriptHistory('AI Interviewer', message.text)
+            } else {
+              updateTranscriptHistory('You', message.text)
+            }
           }
         },
         onTranscript: (transcript) => {
           setTranscript(prev => prev + ' ' + transcript)
+          // Update transcript history with user response
+          updateTranscriptHistory('You', transcript)
         }
       })
       
@@ -159,6 +179,43 @@ const LiveInterview = () => {
     }
   }
 
+  // Generate follow-up questions based on interview type and current question
+  const generateFollowUpQuestions = (interviewData) => {
+    if (!interviewData) return
+    
+    // Sample follow-up questions based on interview type
+    const followUpsByType = {
+      hr: [
+        "Can you provide a specific example of that?",
+        "How did you handle challenges in that situation?",
+        "What did you learn from that experience?",
+        "How would you approach this differently now?",
+        "How does this relate to the role you're applying for?"
+      ],
+      technical: [
+        "Can you explain your approach in more detail?",
+        "What are the time and space complexity of your solution?",
+        "How would you optimize this solution further?",
+        "What edge cases should we consider?",
+        "How would you scale this solution?"
+      ]
+    }
+    
+    // Set initial follow-up questions based on interview type
+    const interviewType = interviewData.type || 'hr'
+    setFollowUpQuestions(followUpsByType[interviewType] || followUpsByType.hr)
+  }
+  
+  // Update transcript history with new entries
+  const updateTranscriptHistory = (speaker, text) => {
+    if (!text) return
+    
+    setTranscriptHistory(prev => [
+      ...prev,
+      { speaker, text, timestamp: new Date().toISOString() }
+    ])
+  }
+  
   // Timer functions
   const startTimer = () => {
     if (!isTimerRunning) {
@@ -333,9 +390,17 @@ const LiveInterview = () => {
       // Prepare final transcript
       const finalTranscript = transcript.trim() || webSpeechService.getTranscript()
       
+      // Format transcript history for evaluation
+      const formattedTranscriptHistory = transcriptHistory.map(entry => 
+        `[${new Date(entry.timestamp).toLocaleTimeString()}] ${entry.speaker}: ${entry.text}`
+      ).join('\n\n')
+      
       console.log('Interview completed! Generating evaluation...')
       
-      const result = await evaluateInterview(id, finalTranscript)
+      // Use transcript history if available, otherwise fall back to simple transcript
+      const transcriptForEvaluation = formattedTranscriptHistory || finalTranscript
+      
+      const result = await evaluateInterview(id, transcriptForEvaluation)
       if (result.success) {
         navigate(`/interview/report/${id}`)
       } else {
@@ -520,6 +585,21 @@ const LiveInterview = () => {
                     </div>
                     <p className="text-lg text-left">{currentQuestion}</p>
                   </div>
+                  
+                  {/* Follow-up Questions */}
+                  {followUpQuestions.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-white/20">
+                      <h4 className="text-sm font-medium text-gray-300 mb-2">Potential Follow-up Questions:</h4>
+                      <ul className="space-y-2">
+                        {followUpQuestions.map((question, index) => (
+                          <li key={index} className="text-sm text-gray-300 flex items-start">
+                            <span className="inline-block w-5 h-5 rounded-full bg-blue-600/50 text-blue-200 text-xs flex items-center justify-center mr-2 mt-0.5">{index + 1}</span>
+                            {question}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -693,6 +773,21 @@ const LiveInterview = () => {
                 <p className="text-gray-300 leading-relaxed">{transcript}</p>
               ) : (
                 <p className="text-gray-500 italic">Transcript will appear here during the interview...</p>
+              )}
+              
+              {/* Transcript History */}
+              {transcriptHistory.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-white/10">
+                  <h4 className="text-sm font-medium text-gray-400 mb-2">Conversation History:</h4>
+                  <div className="space-y-3 max-h-[200px] overflow-y-auto">
+                    {transcriptHistory.map((entry, index) => (
+                      <div key={index} className="text-sm">
+                        <div className="font-medium text-blue-400 mb-1">{entry.speaker}:</div>
+                        <p className="text-gray-300">{entry.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           </div>

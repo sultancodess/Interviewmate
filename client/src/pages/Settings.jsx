@@ -2,27 +2,29 @@ import React, { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import DashboardLayout from '../components/Layout/DashboardLayout'
 import LoadingSpinner from '../components/LoadingSpinner'
-import { User } from 'lucide-react'
-import { Mail } from 'lucide-react'
-import { Phone } from 'lucide-react'
-import { Camera } from 'lucide-react'
-import { Moon } from 'lucide-react'
-import { Sun } from 'lucide-react'
-import { Bell } from 'lucide-react'
-import { Shield } from 'lucide-react'
-import { Trash2 } from 'lucide-react'
-import { Save } from 'lucide-react'
-import { Eye } from 'lucide-react'
-import { EyeOff } from 'lucide-react'
-import { Upload } from 'lucide-react'
-import { X } from 'lucide-react'
-import { Check } from 'lucide-react'
-import { AlertTriangle } from 'lucide-react'
-import { Download } from 'lucide-react'
-import { FileText } from 'lucide-react'
-import { Globe } from 'lucide-react'
-import { Lock } from 'lucide-react'
-import { ChevronRight } from 'lucide-react'
+import {
+  User,
+  Mail,
+  Phone,
+  Camera,
+  Moon,
+  Sun,
+  Bell,
+  Shield,
+  Trash2,
+  Save,
+  Eye,
+  EyeOff,
+  Upload,
+  X,
+  Check,
+  AlertTriangle,
+  Download,
+  FileText,
+  Globe,
+  Lock,
+  ChevronRight
+} from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const Settings = () => {
