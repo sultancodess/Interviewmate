@@ -71,7 +71,7 @@ class GeminiService {
     try {
       const prompt = this.generateEvaluationPrompt(interviewData, transcript)
       const result = await this.model.generateContent(prompt)
-      const response = await result.response
+      const response = result.response
       const text = response.text()
 
       this.requestCount++
@@ -99,8 +99,8 @@ class GeminiService {
       this.lastResetTime = now
     }
 
-    // Free tier limits: 15 requests per minute
-    return this.requestCount < 10 // Conservative limit
+    // More conservative rate limiting to prevent 429 errors
+    return this.requestCount < 5 // Very conservative limit
   }
 
   generateEvaluationPrompt(interviewData, transcript) {
@@ -294,7 +294,7 @@ Example: [{"question": "What is your experience with...", "type": "technical"}]
 `
 
       const result = await this.model.generateContent(prompt)
-      const response = await result.response
+      const response = result.response
       const text = response.text()
 
       this.requestCount++
@@ -340,7 +340,7 @@ Example: [{"question": "What is your experience with...", "type": "technical"}]
 
     try {
       const result = await this.model.generateContent(prompt)
-      const response = await result.response
+      const response = result.response
       const text = response.text()
 
       return text.trim()
@@ -396,17 +396,26 @@ Example: [{"question": "What is your experience with...", "type": "technical"}]
         return false
       }
 
-      // Skip test if we've recently hit rate limits
-      const lastError = this.lastError
-      if (lastError && lastError.includes('quota') && Date.now() - this.lastErrorTime < 60000) {
-        console.log('⚠️ Skipping Gemini test due to recent quota error')
+      // Skip test if we've recently hit rate limits or errors
+      const now = Date.now()
+      const cooldownPeriod = 5 * 60 * 1000 // 5 minutes cooldown
+      
+      if (this.lastError && now - this.lastErrorTime < cooldownPeriod) {
+        console.log('⚠️ Skipping Gemini test due to recent error (cooldown active)')
+        return false
+      }
+
+      // Don't test if we're close to rate limit
+      if (!this.checkRateLimit()) {
+        console.log('⚠️ Skipping Gemini test due to rate limit')
         return false
       }
 
       const result = await this.model.generateContent('Test')
-      const response = await result.response
+      const response = result.response
       const text = response.text()
       
+      this.requestCount++
       return text.length > 0
     } catch (error) {
       console.error('❌ Gemini connection test failed:', error.message)

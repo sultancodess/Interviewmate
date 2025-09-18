@@ -5,6 +5,21 @@ import Interview from '../models/Interview.js'
 import User from '../models/User.js'
 import geminiService from '../config/gemini.js'
 import { protect } from '../middleware/auth.js'
+import { createRateLimiter } from '../middleware/rateLimiting.js'
+import { analyticsCache, historyCache, clearUserCache } from '../middleware/cache.js'
+
+// Create specific rate limiters for interview endpoints
+const analyticsLimiter = createRateLimiter(
+  60 * 1000, // 1 minute
+  10, // 10 requests per minute
+  'Too many analytics requests. Please wait before refreshing.'
+)
+
+const historyLimiter = createRateLimiter(
+  60 * 1000, // 1 minute
+  15, // 15 requests per minute
+  'Too many history requests. Please wait before refreshing.'
+)
 
 const router = express.Router()
 
@@ -128,6 +143,9 @@ router.post('/create', protect, [
     interview.generateVapiConfig()
     await interview.save()
 
+    // Clear user cache since data has changed
+    clearUserCache(req.user.id)
+
     res.status(201).json({
       success: true,
       interview
@@ -140,7 +158,7 @@ router.post('/create', protect, [
 // @desc    Get user's interview history
 // @route   GET /api/interview/history
 // @access  Private
-router.get('/history', protect, async (req, res, next) => {
+router.get('/history', protect, historyLimiter, historyCache, async (req, res, next) => {
   try {
     const page = parseInt(req.query.page) || 1
     const limit = parseInt(req.query.limit) || 10
@@ -193,7 +211,7 @@ router.get('/history', protect, async (req, res, next) => {
 // @desc    Get interview analytics
 // @route   GET /api/interview/analytics
 // @access  Private
-router.get('/analytics', protect, async (req, res, next) => {
+router.get('/analytics', protect, analyticsLimiter, analyticsCache, async (req, res, next) => {
   try {
     const userId = req.user.id
 
@@ -577,6 +595,9 @@ router.post('/:id/evaluate', protect, [
 
       await interview.save()
 
+      // Clear user cache since data has changed
+      clearUserCache(req.user.id)
+
       res.status(200).json({
         success: true,
         interview,
@@ -599,6 +620,9 @@ router.post('/:id/evaluate', protect, [
       await user.save()
 
       await interview.save()
+
+      // Clear user cache since data has changed
+      clearUserCache(req.user.id)
 
       res.status(200).json({
         success: true,

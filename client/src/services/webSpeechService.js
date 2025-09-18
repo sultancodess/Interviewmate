@@ -489,15 +489,56 @@ Keep it conversational and natural.`
     this.stopListening()
     this.stopSpeaking()
     
+    // Clear all timeouts to prevent memory leaks
+    if (this.questionTimeout) {
+      clearTimeout(this.questionTimeout)
+      this.questionTimeout = null
+    }
+    
+    if (this.followUpTimeout) {
+      clearTimeout(this.followUpTimeout)
+      this.followUpTimeout = null
+    }
+    
+    // Remove all event listeners from recognition
     if (this.recognition) {
       this.recognition.onstart = null
       this.recognition.onend = null
       this.recognition.onresult = null
       this.recognition.onerror = null
+      this.recognition.onspeechstart = null
+      this.recognition.onspeechend = null
+      this.recognition.onnomatch = null
+      this.recognition.onaudiostart = null
+      this.recognition.onaudioend = null
+      this.recognition.onsoundstart = null
+      this.recognition.onsoundend = null
+      
+      // Stop and nullify recognition
+      try {
+        this.recognition.stop()
+      } catch (error) {
+        // Ignore errors when stopping already stopped recognition
+      }
+      this.recognition = null
     }
     
+    // Clear speech synthesis
+    if (this.currentUtterance) {
+      speechSynthesis.cancel()
+      this.currentUtterance = null
+    }
+    
+    // Reset all state
     this.isInitialized = false
+    this.isListening = false
+    this.isSpeaking = false
     this.interviewData = null
+    this.questions = []
+    this.currentQuestionIndex = 0
+    this.transcript = ''
+    this.callbacks = {}
+    this.manualStop = false
     this.conversationHistory = []
     this.questions = []
     this.currentQuestionIndex = 0

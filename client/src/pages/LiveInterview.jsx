@@ -593,7 +593,7 @@ const LiveInterview = () => {
                       <ul className="space-y-2">
                         {followUpQuestions.map((question, index) => (
                           <li key={index} className="text-sm text-gray-300 flex items-start">
-                            <span className="inline-block w-5 h-5 rounded-full bg-blue-600/50 text-blue-200 text-xs flex items-center justify-center mr-2 mt-0.5">{index + 1}</span>
+                            <span className="flex w-5 h-5 rounded-full bg-blue-600/50 text-blue-200 text-xs items-center justify-center mr-2 mt-0.5 flex-shrink-0">{index + 1}</span>
                             {question}
                           </li>
                         ))}

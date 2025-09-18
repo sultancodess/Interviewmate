@@ -105,10 +105,20 @@ export const InterviewProvider = ({ children }) => {
           pagination: result.data.pagination 
         }
       } else {
+        // Handle rate limiting specifically
+        if (result.error?.includes('429') || result.error?.includes('Too many')) {
+          return { success: false, message: 'Please wait a moment before refreshing the data.' }
+        }
         return { success: false, message: result.error }
       }
     } catch (error) {
-      const message = error.message || 'Failed to fetch interview history'
+      let message = error.message || 'Failed to fetch interview history'
+      
+      // Handle rate limiting errors
+      if (error.response?.status === 429 || message.includes('429')) {
+        message = 'Please wait a moment before refreshing the data.'
+      }
+      
       return { success: false, message }
     } finally {
       setLoading(false)
@@ -139,10 +149,20 @@ export const InterviewProvider = ({ children }) => {
       if (result.success) {
         return { success: true, analytics: result.data.analytics }
       } else {
+        // Handle rate limiting specifically
+        if (result.error?.includes('429') || result.error?.includes('Too many')) {
+          return { success: false, message: 'Please wait a moment before refreshing the data.' }
+        }
         return { success: false, message: result.error }
       }
     } catch (error) {
-      const message = error.message || 'Failed to fetch analytics'
+      let message = error.message || 'Failed to fetch analytics'
+      
+      // Handle rate limiting errors
+      if (error.response?.status === 429 || message.includes('429')) {
+        message = 'Please wait a moment before refreshing the data.'
+      }
+      
       return { success: false, message }
     }
   }

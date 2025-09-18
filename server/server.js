@@ -24,9 +24,12 @@ import { errorHandler } from './middleware/errorHandler.js'
 import { notFound } from './middleware/notFound.js'
 import { sanitizeAll } from './middleware/sanitize.js'
 import { apiLimiter, authLimiter } from './middleware/rateLimiting.js'
+import { securityConfig, securityLogger, ipSecurity, requestSizeLimit } from './middleware/security.js'
+import { validateSecuritySettings } from './config/validateEnv.js'
 
-// Validate environment variables
+// Validate environment variables and security settings
 validateEnvironment()
+validateSecuritySettings()
 checkDevelopmentSetup()
 
 const app = express()
@@ -70,10 +73,10 @@ app.get('/api/health', (req, res) => {
   })
 })
 
-// API routes
-app.use('/api/auth', authRoutes)
-app.use('/api/user', userRoutes)
-app.use('/api/interview', interviewRoutes)
+// API routes with specific rate limiting
+app.use('/api/auth', authLimiter, authRoutes)
+app.use('/api/user', apiLimiter, userRoutes)
+app.use('/api/interview', apiLimiter, interviewRoutes)
 app.use('/api/payment', paymentRoutes)
 app.use('/api/upload', uploadRoutes)
 app.use('/api/admin', adminRoutes)
@@ -110,11 +113,23 @@ const startServer = async () => {
     }
     
     // Start HTTP server
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`)
       console.log(`📊 Environment: ${process.env.NODE_ENV}`)
       console.log(`🌐 API URL: http://localhost:${PORT}/api`)
       console.log(`📚 Health check: http://localhost:${PORT}/api/health`)
+    })
+
+    // Handle port in use error
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(`❌ Port ${PORT} is already in use. Please:`)
+        console.error(`   1. Kill the existing process: taskkill /f /im node.exe`)
+        console.error(`   2. Or use a different port: PORT=5002 npm run dev`)
+        process.exit(1)
+      } else {
+        throw err
+      }
     })
   } catch (error) {
     console.error('❌ Failed to start server:', error)

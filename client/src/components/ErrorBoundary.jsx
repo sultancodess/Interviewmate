@@ -23,8 +23,43 @@ class ErrorBoundary extends React.Component {
       errorInfo: errorInfo
     })
 
-    // You can also log the error to an error reporting service here
-    // Example: Sentry.captureException(error)
+    // Send error to monitoring service (implement based on your needs)
+    this.reportError(error, errorInfo)
+  }
+
+  reportError = (error, errorInfo) => {
+    // In a real app, you'd send this to your error monitoring service
+    // Example implementations:
+    
+    // Sentry
+    // if (window.Sentry) {
+    //   window.Sentry.captureException(error, {
+    //     contexts: { react: { componentStack: errorInfo.componentStack } }
+    //   })
+    // }
+
+    // Custom error reporting
+    try {
+      const errorReport = {
+        message: error.message,
+        stack: error.stack,
+        componentStack: errorInfo.componentStack,
+        timestamp: new Date().toISOString(),
+        userAgent: navigator.userAgent,
+        url: window.location.href
+      }
+
+      // You could send this to your backend
+      // fetch('/api/errors', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify(errorReport)
+      // }).catch(() => {}) // Fail silently if error reporting fails
+      
+      console.error('Error Report:', errorReport)
+    } catch (reportingError) {
+      console.error('Failed to report error:', reportingError)
+    }
   }
 
   handleReload = () => {

@@ -125,7 +125,17 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 })
 
-// Indexes are handled by unique: true and sparse: true in schema definition
+// Create indexes for better query performance
+userSchema.index({ email: 1 }, { unique: true })
+userSchema.index({ googleId: 1 }, { unique: true, sparse: true })
+userSchema.index({ createdAt: -1 })
+userSchema.index({ isActive: 1 })
+userSchema.index({ 'subscription.plan': 1 })
+userSchema.index({ 'stats.lastInterviewDate': -1 })
+
+// Compound indexes for common queries
+userSchema.index({ email: 1, isActive: 1 })
+userSchema.index({ 'subscription.plan': 1, isActive: 1 })
 
 // Hash password before saving
 userSchema.pre('save', async function(next) {

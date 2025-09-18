@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useInterview } from '../contexts/InterviewContext'
@@ -25,13 +25,34 @@ const Dashboard = () => {
   const [recentInterviews, setRecentInterviews] = useState([])
   const [analytics, setAnalytics] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const hasFetchedRef = useRef(false)
+  const retryCountRef = useRef(0)
+  const maxRetries = 3
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
+  const defaultAnalytics = {
+    overview: {
+      totalInterviews: 0,
+      averageScore: 0,
+      totalMinutes: 0,
+      completedInterviews: 0
+    },
+    performanceTrend: [],
+    skillBreakdown: {}
+  }
+
+  const fetchDashboardData = useCallback(async () => {
+    // Prevent multiple simultaneous calls
+    if (hasFetchedRef.current && retryCountRef.current === 0) {
+      return
+    }
+
+    try {
+      setLoading(true)
+      setError(null)
+      
+      // Fetch recent interviews with error handling
       try {
-        setLoading(true)
-        
-        // Fetch recent interviews
         const historyResult = await getInterviewHistory({ limit: 5 })
         if (historyResult.success) {
           setRecentInterviews(historyResult.data?.interviews || historyResult.interviews || [])
@@ -39,58 +60,64 @@ const Dashboard = () => {
           console.log('No interview history found:', historyResult.message)
           setRecentInterviews([])
         }
+      } catch (historyError) {
+        console.error('Failed to fetch interview history:', historyError)
+        setRecentInterviews([])
+      }
 
-        // Fetch analytics
+      // Fetch analytics with error handling
+      try {
         const analyticsResult = await getAnalytics()
         if (analyticsResult.success) {
-          setAnalytics(analyticsResult.data?.analytics || analyticsResult.analytics || {
-            overview: {
-              totalInterviews: 0,
-              averageScore: 0,
-              totalMinutes: 0,
-              completedInterviews: 0
-            },
-            performanceTrend: [],
-            skillBreakdown: {}
-          })
+          setAnalytics(analyticsResult.data?.analytics || analyticsResult.analytics || defaultAnalytics)
         } else {
           console.log('No analytics found:', analyticsResult.message)
-          setAnalytics({
-            overview: {
-              totalInterviews: 0,
-              averageScore: 0,
-              totalMinutes: 0,
-              completedInterviews: 0
-            },
-            performanceTrend: [],
-            skillBreakdown: {}
-          })
+          setAnalytics(defaultAnalytics)
         }
-      } catch (error) {
-        console.error('Failed to fetch dashboard data:', error)
-        // Set default empty state
-        setRecentInterviews([])
-        setAnalytics({
-          overview: {
-            totalInterviews: 0,
-            averageScore: 0,
-            totalMinutes: 0,
-            completedInterviews: 0
-          },
-          performanceTrend: [],
-          skillBreakdown: {}
-        })
-      } finally {
-        setLoading(false)
+      } catch (analyticsError) {
+        console.error('Failed to fetch analytics:', analyticsError)
+        setAnalytics(defaultAnalytics)
       }
-    }
 
-    if (user) {
+      hasFetchedRef.current = true
+      retryCountRef.current = 0
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error)
+      
+      // Handle 429 errors specifically
+      if (error.message?.includes('429') || error.response?.status === 429) {
+        setError('Too many requests. Please wait a moment before refreshing.')
+        
+        // Exponential backoff for retries
+        if (retryCountRef.current < maxRetries) {
+          const delay = Math.pow(2, retryCountRef.current) * 1000 // 1s, 2s, 4s
+          retryCountRef.current++
+          
+          setTimeout(() => {
+            fetchDashboardData()
+          }, delay)
+          return
+        }
+      } else {
+        setError('Failed to load dashboard data. Please try refreshing the page.')
+      }
+      
+      // Set default empty state
+      setRecentInterviews([])
+      setAnalytics(defaultAnalytics)
+    } finally {
+      setLoading(false)
+    }
+  }, [getInterviewHistory, getAnalytics])
+
+  useEffect(() => {
+    if (user && !hasFetchedRef.current) {
       fetchDashboardData()
     }
-  }, [user, getInterviewHistory, getAnalytics])
+  }, [user, fetchDashboardData])
 
-  const quickActions = [
+  // Memoize static data to prevent unnecessary re-renders
+  const quickActions = useMemo(() => [
     {
       title: 'HR Interview',
       description: 'Practice behavioral and cultural fit questions',
@@ -105,9 +132,10 @@ const Dashboard = () => {
       color: 'bg-green-500',
       href: '/interview/setup?type=technical'
     }
-  ]
+  ], [])
 
-  const stats = [
+  // Memoize computed stats to prevent recalculation on every render
+  const stats = useMemo(() => [
     {
       name: 'Total Interviews',
       value: analytics?.overview?.totalInterviews || 0,
@@ -132,13 +160,41 @@ const Dashboard = () => {
       icon: BarChart3,
       color: 'text-purple-600'
     }
-  ]
+  ], [analytics?.overview])
 
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center h-4">
+        <div className="flex items-center justify-center h-64">
           <LoadingSpinner size="lg" text="Loading dashboard..." />
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+            <div className="text-red-600 mb-4">
+              <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-medium text-red-800 mb-2">Unable to Load Dashboard</h3>
+            <p className="text-red-600 mb-4">{error}</p>
+            <button
+              onClick={() => {
+                hasFetchedRef.current = false
+                retryCountRef.current = 0
+                fetchDashboardData()
+              }}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
         </div>
       </DashboardLayout>
     )

@@ -15,30 +15,65 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [token, setToken] = useState(localStorage.getItem('token'))
+  const [token, setToken] = useState(() => {
+    // Safely get token from localStorage
+    try {
+      return localStorage.getItem('token')
+    } catch (error) {
+      console.error('Failed to read token from localStorage:', error)
+      return null
+    }
+  })
+  const [authChecked, setAuthChecked] = useState(false)
 
   // Check if user is authenticated on app load
   useEffect(() => {
+    let isMounted = true // Prevent state updates if component unmounts
+
     const checkAuth = async () => {
-      if (token) {
-        try {
-          const result = await handleApiResponse(() => apiService.auth.getMe())
-          if (result.success) {
-            setUser(result.data.user)
-          } else {
-            console.error('Auth check failed:', result.error)
+      if (!token) {
+        setLoading(false)
+        setAuthChecked(true)
+        return
+      }
+
+      try {
+        const result = await handleApiResponse(() => apiService.auth.getMe())
+        
+        if (!isMounted) return // Component unmounted, don't update state
+        
+        if (result.success) {
+          setUser(result.data.user)
+        } else {
+          console.error('Auth check failed:', result.error)
+          // Only logout if it's an auth error, not a network error
+          if (result.error?.includes('401') || result.error?.includes('unauthorized')) {
             logout()
           }
-        } catch (error) {
-          console.error('Auth check failed:', error)
+        }
+      } catch (error) {
+        if (!isMounted) return
+        
+        console.error('Auth check failed:', error)
+        // Only logout on auth errors, not network errors
+        if (error.response?.status === 401) {
           logout()
         }
+      } finally {
+        if (isMounted) {
+          setLoading(false)
+          setAuthChecked(true)
+        }
       }
-      setLoading(false)
     }
 
     checkAuth()
-  }, [token])
+
+    // Cleanup function to prevent memory leaks
+    return () => {
+      isMounted = false
+    }
+  }, [token]) // Only depend on token, not the logout function
 
   const login = async (email, password) => {
     try {

@@ -24,6 +24,7 @@ const optionalEnvVars = {
 export const validateEnvironment = () => {
   const missingVars = []
   const warnings = []
+  const securityIssues = []
 
   // Check required variables
   requiredEnvVars.forEach(varName => {
@@ -40,13 +41,36 @@ export const validateEnvironment = () => {
     }
   })
 
-  // Check JWT secret strength
-  if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
-    warnings.push('JWT_SECRET should be at least 32 characters long for security')
+  // Security validations
+  if (process.env.JWT_SECRET) {
+    if (process.env.JWT_SECRET.length < 32) {
+      securityIssues.push('JWT_SECRET must be at least 32 characters long for security')
+    }
+    
+    // Check for common weak secrets
+    const weakSecrets = ['secret', '123456', 'password', 'interviewmate123', 'jwt_secret']
+    if (weakSecrets.some(weak => process.env.JWT_SECRET.toLowerCase().includes(weak))) {
+      securityIssues.push('JWT_SECRET appears to be weak or default - use a strong random secret')
+    }
   }
 
-  if (process.env.JWT_SECRET === 'interviewmate123') {
-    warnings.push('Using default JWT secret - change this in production!')
+  // Check for exposed credentials in development
+  const sensitiveKeys = ['GEMINI_API_KEY', 'VAPI_PRIVATE_API_KEY', 'RAZORPAY_KEY_SECRET']
+  sensitiveKeys.forEach(key => {
+    if (process.env[key] && process.env[key].length < 10) {
+      warnings.push(`${key} appears to be too short - verify it's correct`)
+    }
+  })
+
+  // Production security checks
+  if (process.env.NODE_ENV === 'production') {
+    if (process.env.CLIENT_URL && process.env.CLIENT_URL.includes('localhost')) {
+      securityIssues.push('CLIENT_URL contains localhost in production environment')
+    }
+    
+    if (!process.env.MONGODB_URI || process.env.MONGODB_URI.includes('localhost')) {
+      securityIssues.push('Using localhost MongoDB in production - use a proper database service')
+    }
   }
 
   // Check optional services
@@ -70,6 +94,19 @@ export const validateEnvironment = () => {
     })
     console.error('\nPlease check your .env file and add the missing variables.')
     process.exit(1)
+  }
+
+  if (securityIssues.length > 0) {
+    console.error('🚨 SECURITY ISSUES DETECTED:')
+    securityIssues.forEach(issue => {
+      console.error(`   - ${issue}`)
+    })
+    if (process.env.NODE_ENV === 'production') {
+      console.error('\nSecurity issues detected in production. Exiting for safety.')
+      process.exit(1)
+    } else {
+      console.error('\nSecurity issues detected. Please fix before deploying to production.\n')
+    }
   }
 
   if (warnings.length > 0) {

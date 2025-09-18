@@ -1,28 +1,17 @@
 import express from 'express'
 import crypto from 'crypto'
-import { body, validationResult } from 'express-validator'
 import User from '../models/User.js'
 import { protect, sendTokenResponse } from '../middleware/auth.js'
 import { sendWelcomeEmail, sendPasswordResetEmail } from '../config/email.js'
+import { validateRegistration, validateLogin, handleValidationErrors } from '../middleware/validation.js'
+import { authLimiter } from '../middleware/rateLimiting.js'
 
 const router = express.Router()
 
 // @desc    Register user
 // @route   POST /api/auth/register
 // @access  Public
-router.post('/register', [
-  body('name')
-    .trim()
-    .isLength({ min: 2, max: 50 })
-    .withMessage('Name must be between 2 and 50 characters'),
-  body('email')
-    .isEmail()
-    .normalizeEmail()
-    .withMessage('Please enter a valid email'),
-  body('password')
-    .isLength({ min: 6 })
-    .withMessage('Password must be at least 6 characters long')
-], async (req, res, next) => {
+router.post('/register', authLimiter, validateRegistration, async (req, res, next) => {
   try {
     // Check for validation errors
     const errors = validationResult(req)
@@ -66,15 +55,7 @@ router.post('/register', [
 // @desc    Login user
 // @route   POST /api/auth/login
 // @access  Public
-router.post('/login', [
-  body('email')
-    .isEmail()
-    .normalizeEmail()
-    .withMessage('Please enter a valid email'),
-  body('password')
-    .notEmpty()
-    .withMessage('Password is required')
-], async (req, res, next) => {
+router.post('/login', authLimiter, validateLogin, async (req, res, next) => {
   try {
     // Check for validation errors
     const errors = validationResult(req)
