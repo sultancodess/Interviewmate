@@ -203,7 +203,11 @@ interviewSchema.methods.generateVapiConfig = function() {
     difficulty: configuration.difficulty || 'medium',
     customQuestions: configuration.customQuestions?.join('; ') || '',
     jobDescription: configuration.jobDescription || '',
-    interviewer_name: this.getInterviewerName(type)
+    interviewer_name: this.getInterviewerName(type),
+    resume_summary: candidateInfo.resumeData?.summary || '',
+    key_skills: candidateInfo.resumeData?.skills?.technical?.join(', ') || '',
+    recent_experience: candidateInfo.resumeData?.experience?.[0]?.title || '',
+    projects: candidateInfo.resumeData?.projects?.map(p => p.name).join(', ') || ''
   }
   
   if (type === 'hr') {

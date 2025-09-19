@@ -1,6 +1,7 @@
 import rateLimit from 'express-rate-limit'
+import { sendRateLimitError } from '../utils/errorResponse.js'
 
-// Create rate limiter factory
+// Create rate limiter factory with multi-factor identification
 export const createRateLimiter = (windowMs, max, message, skipSuccessfulRequests = false) => {
   return rateLimit({
     windowMs,
@@ -13,14 +14,27 @@ export const createRateLimiter = (windowMs, max, message, skipSuccessfulRequests
     standardHeaders: true,
     legacyHeaders: false,
     skipSuccessfulRequests,
+    // Multi-factor key generation to prevent proxy rotation bypass
+    keyGenerator: (req) => {
+      // Combine IP, user ID (if authenticated), and user agent fingerprint
+      const ip = req.ip || req.connection.remoteAddress
+      const userId = req.user?.id || 'anonymous'
+      const userAgent = req.get('User-Agent') || 'unknown'
+      
+      // Create a simple fingerprint from user agent
+      const fingerprint = userAgent
+        .split('')
+        .reduce((hash, char) => {
+          const code = char.charCodeAt(0)
+          hash = ((hash << 5) - hash) + code
+          return hash & hash
+        }, 0)
+        .toString(36)
+      
+      return `${ip}:${userId}:${fingerprint}`
+    },
     handler: (req, res) => {
-      res.status(429).json({
-        success: false,
-        message,
-        retryAfter: Math.ceil(windowMs / 1000),
-        limit: max,
-        windowMs
-      })
+      return sendRateLimitError(res, message)
     }
   })
 }

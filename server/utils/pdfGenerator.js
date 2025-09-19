@@ -56,11 +56,12 @@ export const generatePDFReport = async (interview, report) => {
 
 // Generate PDF using Puppeteer (if available)
 async function generatePDFWithPuppeteer(interview, report) {
+  let browser = null
   try {
     // Dynamic import to handle optional dependency
     const puppeteer = await import('puppeteer')
     
-    const browser = await puppeteer.default.launch({
+    browser = await puppeteer.default.launch({
       headless: 'new',
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     })
@@ -81,10 +82,18 @@ async function generatePDFWithPuppeteer(interview, report) {
       }
     })
     
-    await browser.close()
     return pdfBuffer
   } catch (error) {
     throw new Error(`Puppeteer PDF generation failed: ${error.message}`)
+  } finally {
+    // Always close browser instance to prevent memory leaks
+    if (browser) {
+      try {
+        await browser.close()
+      } catch (closeError) {
+        console.warn('Warning: Failed to close browser instance:', closeError.message)
+      }
+    }
   }
 }
 
@@ -421,7 +430,7 @@ function generateHTMLReport(interview, report) {
         <div class="skills-section">
             <h2 class="section-title">Skills Assessment</h2>
             <div class="skills-grid">
-                ${Object.entries(evaluation.skillScores || {}).map(([skill, score]) => `
+                ${Object.entries(evaluation?.skillScores || {}).map(([skill, score]) => `
                     <div class="skill-item">
                         <div class="skill-name">${formatSkillName(skill)}</div>
                         <div class="skill-score">${score || 0}%</div>
@@ -440,13 +449,13 @@ function generateHTMLReport(interview, report) {
                 <div class="feedback-box strengths">
                     <h3 class="feedback-title">✅ Strengths</h3>
                     <ul class="feedback-list">
-                        ${(evaluation.strengths || []).map(strength => `<li>${strength}</li>`).join('')}
+                        ${(evaluation?.strengths || []).map(strength => `<li>${strength}</li>`).join('')}
                     </ul>
                 </div>
                 <div class="feedback-box weaknesses">
                     <h3 class="feedback-title">⚠️ Areas for Improvement</h3>
                     <ul class="feedback-list">
-                        ${(evaluation.weaknesses || []).map(weakness => `<li>${weakness}</li>`).join('')}
+                        ${(evaluation?.weaknesses || []).map(weakness => `<li>${weakness}</li>`).join('')}
                     </ul>
                 </div>
             </div>
@@ -464,13 +473,13 @@ function generateHTMLReport(interview, report) {
             <h2 class="section-title">Recommendations for Improvement</h2>
             <div class="feedback-box">
                 <ul class="feedback-list">
-                    ${(evaluation.recommendations || []).map(rec => `<li>${rec}</li>`).join('')}
+                    ${(evaluation?.recommendations || []).map(rec => `<li>${rec}</li>`).join('')}
                 </ul>
             </div>
         </div>
 
         <!-- Badges -->
-        ${evaluation.badges && evaluation.badges.length > 0 ? `
+        ${evaluation?.badges && evaluation.badges.length > 0 ? `
             <div class="badges-section">
                 <h2 class="section-title">Achievement Badges</h2>
                 <div class="badges-grid">

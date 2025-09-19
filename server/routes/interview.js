@@ -4,6 +4,7 @@ import { body, validationResult } from 'express-validator'
 import Interview from '../models/Interview.js'
 import User from '../models/User.js'
 import geminiService from '../config/gemini.js'
+import resumeParser from '../utils/resumeParser.js'
 import { protect } from '../middleware/auth.js'
 import { createRateLimiter } from '../middleware/rateLimiting.js'
 import { analyticsCache, historyCache, clearUserCache } from '../middleware/cache.js'
@@ -393,7 +394,7 @@ router.post('/evaluate', protect, [
         strengths: ['Clear communication', 'Good engagement'],
         weaknesses: ['Could provide more specific examples'],
         recommendations: ['Practice behavioral questions', 'Prepare specific examples'],
-        questionFeedback: questions.map((q, index) => ({
+        questionFeedback: (questions || []).map((q, index) => ({
           question: q.question || q,
           score: 7,
           feedback: 'Good response, could be more detailed'
@@ -448,6 +449,66 @@ router.post('/generate-followup', protect, [
         message: 'AI follow-up generation unavailable'
       })
     }
+  } catch (error) {
+    next(error)
+  }
+})
+
+// @desc    Parse uploaded resume
+// @route   POST /api/interview/parse-resume
+// @access  Private
+router.post('/parse-resume', protect, async (req, res, next) => {
+  try {
+    const { filePath, fileName } = req.body
+    
+    if (!filePath || !fileName) {
+      return res.status(400).json({
+        success: false,
+        message: 'File path and name are required'
+      })
+    }
+
+    const result = await resumeParser.parseResume(filePath, fileName)
+    
+    res.status(200).json({
+      success: result.success,
+      data: result.data,
+      message: result.success ? 'Resume parsed successfully' : 'Resume parsing failed, using fallback data'
+    })
+  } catch (error) {
+    next(error)
+  }
+})
+
+// @desc    Generate resume-based questions
+// @route   POST /api/interview/resume-questions
+// @access  Private
+router.post('/resume-questions', protect, [
+  body('resumeData')
+    .notEmpty()
+    .withMessage('Resume data is required'),
+  body('interviewType')
+    .isIn(['hr', 'technical', 'managerial'])
+    .withMessage('Invalid interview type')
+], async (req, res, next) => {
+  try {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      })
+    }
+
+    const { resumeData, interviewType } = req.body
+    
+    const questions = await resumeParser.generateResumeBasedQuestions(resumeData, interviewType)
+    
+    res.status(200).json({
+      success: true,
+      questions
+    })
   } catch (error) {
     next(error)
   }
@@ -579,56 +640,83 @@ router.post('/:id/evaluate', protect, [
     interview.session.endTime = new Date()
     interview.status = 'completed'
 
-    // Generate AI evaluation using Gemini
+    // Generate AI evaluation using Gemini with proper error handling
     try {
-      const evaluation = await geminiService.evaluateInterview(interview, transcript)
+      let evaluation
+      try {
+        evaluation = await geminiService.evaluateInterview(interview, transcript)
+      } catch (aiError) {
+        console.error('AI Evaluation Error:', aiError)
+        // Use fallback evaluation from Gemini service
+        evaluation = geminiService.getFallbackEvaluation()
+      }
 
       interview.evaluation = evaluation
 
-      // Update user stats
-      const user = await User.findById(req.user.id)
-      user.updateStats({
-        duration: interview.configuration.duration,
-        score: evaluation.overallScore
-      })
-      await user.save()
+      // Update user stats with proper error handling
+      try {
+        const user = await User.findById(req.user.id)
+        if (user) {
+          user.updateStats({
+            duration: interview.configuration.duration,
+            score: evaluation.overallScore
+          })
+          await user.save()
+        }
+      } catch (userError) {
+        console.error('Error updating user stats:', userError)
+        // Continue without failing the request
+      }
 
       await interview.save()
 
       // Clear user cache since data has changed
-      clearUserCache(req.user.id)
+      try {
+        clearUserCache(req.user.id)
+      } catch (cacheError) {
+        console.error('Error clearing user cache:', cacheError)
+        // Continue without failing the request
+      }
 
       res.status(200).json({
         success: true,
         interview,
-        evaluation
+        evaluation,
+        message: evaluation.evaluationModel === 'fallback' ? 
+          'Interview evaluated with fallback system. AI evaluation temporarily unavailable.' : 
+          'Interview evaluated successfully.'
       })
-    } catch (aiError) {
-      console.error('AI Evaluation Error:', aiError)
+    } catch (error) {
+      console.error('Unexpected error during evaluation:', error)
       
-      // Use fallback evaluation from Gemini service
-      const fallbackEvaluation = geminiService.getFallbackEvaluation()
-
-      interview.evaluation = fallbackEvaluation
+      // Final fallback - return basic evaluation
+      const basicEvaluation = {
+        overallScore: 75,
+        skillScores: {
+          communication: 75,
+          technicalKnowledge: 70,
+          problemSolving: 75,
+          confidence: 70,
+          clarity: 75,
+          behavioral: 75
+        },
+        strengths: ['Participated in the interview'],
+        weaknesses: ['Could provide more specific examples'],
+        recommendations: ['Continue practicing interview skills'],
+        detailedFeedback: 'Interview completed with basic evaluation due to system limitations.',
+        badges: [],
+        evaluatedAt: new Date(),
+        evaluationModel: 'basic-fallback'
+      }
       
-      // Update user stats with fallback score
-      const user = await User.findById(req.user.id)
-      user.updateStats({
-        duration: interview.configuration.duration,
-        score: fallbackEvaluation.overallScore
-      })
-      await user.save()
-
+      interview.evaluation = basicEvaluation
       await interview.save()
 
-      // Clear user cache since data has changed
-      clearUserCache(req.user.id)
-
       res.status(200).json({
         success: true,
         interview,
-        evaluation: fallbackEvaluation,
-        message: 'Interview evaluated with fallback system. AI evaluation temporarily unavailable.'
+        evaluation: basicEvaluation,
+        message: 'Interview completed with basic evaluation due to system limitations.'
       })
     }
   } catch (error) {

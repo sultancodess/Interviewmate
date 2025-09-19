@@ -1,5 +1,6 @@
 import express from 'express'
 import crypto from 'crypto'
+import { body, validationResult } from 'express-validator'
 import User from '../models/User.js'
 import { protect, sendTokenResponse } from '../middleware/auth.js'
 import { sendWelcomeEmail, sendPasswordResetEmail } from '../config/email.js'

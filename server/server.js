@@ -126,6 +126,7 @@ const startServer = async () => {
         console.error(`❌ Port ${PORT} is already in use. Please:`)
         console.error(`   1. Kill the existing process: taskkill /f /im node.exe`)
         console.error(`   2. Or use a different port: PORT=5002 npm run dev`)
+        console.error(`   3. Or wait a moment and try again`)
         process.exit(1)
       } else {
         throw err

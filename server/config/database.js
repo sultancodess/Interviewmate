@@ -11,8 +11,14 @@ const connectDB = async () => {
       console.error("❌ MongoDB connection error:", err);
     });
 
-    mongoose.connection.on("disconnected", () => {
-      console.log("⚠️ MongoDB disconnected");
+    mongoose.connection.on("disconnected", async () => {
+      console.log("⚠️ MongoDB disconnected - attempting reconnection...");
+      // Attempt reconnection after 5 seconds
+      setTimeout(() => {
+        connectDB().catch(err => {
+          console.error("❌ Failed to reconnect to MongoDB:", err);
+        });
+      }, 5000);
     });
 
     mongoose.connection.on("reconnected", () => {

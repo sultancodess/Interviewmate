@@ -11,7 +11,9 @@
     "start:safe": "node scripts/start.js",
     "test": "jest",
     "check-env": "node scripts/checkEnv.js",
-    "setup": "node scripts/checkEnv.js && npm run dev"
+    "setup": "node scripts/checkEnv.js && npm run dev",
+    "generate-jwt": "node scripts/generateJWTSecret.js",
+    "kill-port": "node scripts/killPort.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

@@ -490,15 +490,17 @@ Keep it conversational and natural.`
     this.stopSpeaking()
     
     // Clear all timeouts to prevent memory leaks
-    if (this.questionTimeout) {
-      clearTimeout(this.questionTimeout)
-      this.questionTimeout = null
-    }
+    const timeouts = [this.questionTimeout, this.followUpTimeout, this.restartTimeout]
+    timeouts.forEach(timeout => {
+      if (timeout) {
+        clearTimeout(timeout)
+      }
+    })
     
-    if (this.followUpTimeout) {
-      clearTimeout(this.followUpTimeout)
-      this.followUpTimeout = null
-    }
+    // Reset timeout references
+    this.questionTimeout = null
+    this.followUpTimeout = null
+    this.restartTimeout = null
     
     // Remove all event listeners from recognition
     if (this.recognition) {

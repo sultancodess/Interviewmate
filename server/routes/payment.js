@@ -225,7 +225,18 @@ router.post('/webhook', async (req, res, next) => {
     const signature = req.headers['x-razorpay-signature']
     const body = JSON.stringify(req.body)
 
-    // Verify webhook signature if webhook secret is configured
+    // Verify webhook signature - REQUIRED in production
+    if (process.env.NODE_ENV === 'production') {
+      if (!process.env.RAZORPAY_WEBHOOK_SECRET || process.env.RAZORPAY_WEBHOOK_SECRET === 'whsec_your_webhook_secret_here') {
+        console.error('Webhook secret not configured in production')
+        return res.status(500).json({
+          success: false,
+          message: 'Webhook verification not configured'
+        })
+      }
+    }
+    
+    // Always verify signature if webhook secret is configured
     if (process.env.RAZORPAY_WEBHOOK_SECRET && process.env.RAZORPAY_WEBHOOK_SECRET !== 'whsec_your_webhook_secret_here') {
       const expectedSignature = crypto
         .createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET)
@@ -233,11 +244,21 @@ router.post('/webhook', async (req, res, next) => {
         .digest('hex')
 
       if (signature !== expectedSignature) {
+        console.error('Invalid webhook signature received')
         return res.status(400).json({
           success: false,
           message: 'Invalid webhook signature'
         })
       }
+    } else if (process.env.NODE_ENV === 'production') {
+      // In production, always require signature verification
+      return res.status(400).json({
+        success: false,
+        message: 'Webhook signature verification required'
+      })
+    } else {
+      // In development, warn if webhook secret is not configured
+      console.warn('⚠️ Webhook secret not configured - webhooks will be accepted without verification')
     }
 
     const event = req.body

@@ -64,12 +64,25 @@ export const validateEnvironment = () => {
 
   // Production security checks
   if (process.env.NODE_ENV === 'production') {
+    // Critical production requirements
+    const productionRequired = ['CLIENT_URL', 'GEMINI_API_KEY']
+    productionRequired.forEach(varName => {
+      if (!process.env[varName]) {
+        securityIssues.push(`${varName} is required in production`)
+      }
+    })
+    
     if (process.env.CLIENT_URL && process.env.CLIENT_URL.includes('localhost')) {
       securityIssues.push('CLIENT_URL contains localhost in production environment')
     }
     
     if (!process.env.MONGODB_URI || process.env.MONGODB_URI.includes('localhost')) {
       securityIssues.push('Using localhost MongoDB in production - use a proper database service')
+    }
+    
+    // Ensure HTTPS in production
+    if (process.env.CLIENT_URL && !process.env.CLIENT_URL.startsWith('https://')) {
+      securityIssues.push('CLIENT_URL must use HTTPS in production')
     }
   }
 
@@ -145,6 +158,49 @@ export const checkDevelopmentSetup = () => {
       }
     })
   }
+}
+
+// Validate security settings specifically
+export const validateSecuritySettings = () => {
+  const securityWarnings = []
+  
+  // Check for secure headers configuration
+  if (process.env.NODE_ENV === 'production') {
+    if (!process.env.CORS_ORIGIN) {
+      securityWarnings.push('CORS_ORIGIN not set - using default CLIENT_URL')
+      process.env.CORS_ORIGIN = process.env.CLIENT_URL
+    }
+    
+    if (!process.env.RATE_LIMIT_WINDOW) {
+      process.env.RATE_LIMIT_WINDOW = '900000' // 15 minutes
+    }
+    
+    if (!process.env.RATE_LIMIT_MAX) {
+      process.env.RATE_LIMIT_MAX = '100'
+    }
+  }
+  
+  // Check for security middleware configuration
+  const securityEnvVars = {
+    HELMET_ENABLED: 'true',
+    RATE_LIMITING_ENABLED: 'true',
+    CORS_ENABLED: 'true'
+  }
+  
+  Object.entries(securityEnvVars).forEach(([key, defaultValue]) => {
+    if (!process.env[key]) {
+      process.env[key] = defaultValue
+    }
+  })
+  
+  if (securityWarnings.length > 0) {
+    console.log('🔒 Security configuration warnings:')
+    securityWarnings.forEach(warning => {
+      console.log(`   - ${warning}`)
+    })
+  }
+  
+  console.log('🔒 Security settings validated')
 }
 
 // Default export removed - using named exports

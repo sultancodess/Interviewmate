@@ -55,6 +55,8 @@ const LiveInterview = () => {
   const [duration, setDuration] = useState(0)
   const [isTimerRunning, setIsTimerRunning] = useState(false)
   const timerRef = useRef(null)
+  const questionTimeout = useRef(null)
+  const followUpTimeout = useRef(null)
   
   // Interview data
   const [questionCount, setQuestionCount] = useState(0)
@@ -219,6 +221,12 @@ const LiveInterview = () => {
   // Timer functions
   const startTimer = () => {
     if (!isTimerRunning) {
+      // Clear any existing timer first
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
+      
       setIsTimerRunning(true)
       timerRef.current = setInterval(() => {
         setDuration(prev => prev + 1)
@@ -421,19 +429,38 @@ const LiveInterview = () => {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      // Clear all timers
       if (timerRef.current) {
         clearInterval(timerRef.current)
+        timerRef.current = null
       }
+      
+      // Clear any pending timeouts
+      const timeouts = [questionTimeout, followUpTimeout]
+      timeouts.forEach(timeout => {
+        if (timeout) {
+          clearTimeout(timeout)
+        }
+      })
+      
+      // Cleanup services
       try {
         vapiService.removeAllListeners()
+        vapiService.cleanup()
       } catch (error) {
         console.warn('Error removing VAPI listeners:', error)
       }
+      
       try {
         webSpeechService.cleanup()
       } catch (error) {
         console.warn('Error cleaning up web speech service:', error)
       }
+      
+      // Reset state
+      setCallStatus('idle')
+      setIsConnected(false)
+      setIsTimerRunning(false)
     }
   }, [])
 

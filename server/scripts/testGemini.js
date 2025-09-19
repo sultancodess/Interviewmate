@@ -13,7 +13,10 @@ async function testGeminiAPI() {
       throw new Error('GEMINI_API_KEY not found in environment')
     }
     
-    console.log(`📋 API Key: ${apiKey.substring(0, 8)}...`)
+    // Only log API key in development mode for security
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`📋 API Key: ${apiKey.substring(0, 8)}...`)
+    }
     console.log(`📋 Model: ${process.env.GEMINI_MODEL || 'gemini-2.0-flash-exp'}`)
     
     const genAI = new GoogleGenerativeAI(apiKey)
