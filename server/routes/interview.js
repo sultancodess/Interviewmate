@@ -159,8 +159,10 @@ router.post('/create', protect, [
 // @desc    Get user's interview history
 // @route   GET /api/interview/history
 // @access  Private
-router.get('/history', protect, historyLimiter, historyCache, async (req, res, next) => {
+router.get('/history', protect, async (req, res, next) => {
   try {
+    console.log('📊 Interview history request from user:', req.user.id)
+    
     const page = parseInt(req.query.page) || 1
     const limit = parseInt(req.query.limit) || 10
     const skip = (page - 1) * limit
@@ -187,12 +189,16 @@ router.get('/history', protect, historyLimiter, historyCache, async (req, res, n
       }
     }
 
+    console.log('📊 Query filter:', filter)
+
     const interviews = await Interview.find(filter)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
 
     const total = await Interview.countDocuments(filter)
+
+    console.log('📊 Found interviews:', interviews.length, 'Total:', total)
 
     res.status(200).json({
       success: true,
@@ -205,7 +211,12 @@ router.get('/history', protect, historyLimiter, historyCache, async (req, res, n
       }
     })
   } catch (error) {
-    next(error)
+    console.error('❌ Interview history error:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch interview history',
+      error: error.message
+    })
   }
 })
 

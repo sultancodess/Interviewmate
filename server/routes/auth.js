@@ -186,7 +186,18 @@ router.post('/google', async (req, res, next) => {
       })
     }
     
-    next(error)
+    if (error.message.includes('audience')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Google OAuth configuration error'
+      })
+    }
+    
+    return res.status(500).json({
+      success: false,
+      message: 'Google authentication failed',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    })
   }
 })
 

@@ -37,7 +37,8 @@ import {
   Loader,
   Play,
   Pause,
-  SkipForward
+  SkipForward,
+  X
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import {
