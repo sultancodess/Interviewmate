@@ -1,897 +1,993 @@
-import React, { useState, useEffect, useRef } from 'react'
+/**
+ * LiveInterview Component
+ * 
+ * This component provides the real-time interview interface with:
+ * - Zoom/Google Meet-style interface
+ * - Audio controls (mute/unmute)
+ * - Real-time captions and transcription
+ * - Interviewer persona display
+ * - Adaptive question display
+ * - Timer and progress tracking
+ * - Support for both Lite (Web Speech) and Pro (VAPI) modes
+ */
+
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useInterview } from '../contexts/InterviewContext'
 import { useAuth } from '../contexts/AuthContext'
 import vapiService from '../services/vapi'
 import webSpeechService from '../services/webSpeechService'
-// Using console logs instead of toast notifications
 import { 
   Mic, 
   MicOff, 
   Volume2, 
   VolumeX, 
-  Play, 
-  Pause, 
   PhoneOff, 
   Settings, 
   Maximize, 
   Minimize, 
-  Loader, 
-  AlertCircle,
   Clock,
   Activity,
   Brain,
-  BarChart3
+  User,
+  MessageSquare,
+  BarChart3,
+  AlertCircle,
+  CheckCircle,
+  Loader,
+  Play,
+  Pause,
+  SkipForward
 } from 'lucide-react'
+import toast from 'react-hot-toast'
+import {
+  INTERVIEW_MODES,
+  INTERVIEW_TYPE_LABELS,
+  INTERVIEW_STATUS
+} from '../constants'
 
 const LiveInterview = () => {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { user: _user } = useAuth()
-  const { getInterview, evaluateInterview } = useInterview()
+  const { user } = useAuth()
+  const { getInterview, updateInterview, evaluateInterview } = useInterview()
   
-  // State management
+  // Refs
+  const timerRef = useRef(null)
+  const transcriptRef = useRef(null)
+  
+  // Core state
   const [interview, setInterview] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [isInitializing, setIsInitializing] = useState(false)
   const [error, setError] = useState(null)
   
-  // Call state
-  const [callStatus, setCallStatus] = useState('idle') // idle, connecting, connected, ended
-  const [_isConnected, _setIsConnected] = useState(false)
+  // Interview session state
+  const [sessionStatus, setSessionStatus] = useState('idle') // idle, initializing, active, paused, ended
   const [currentQuestion, setCurrentQuestion] = useState('')
-  const [followUpQuestions, setFollowUpQuestions] = useState([])
+  const [questionIndex, setQuestionIndex] = useState(0)
+  const [questions, setQuestions] = useState([])
   const [transcript, setTranscript] = useState('')
   const [transcriptHistory, setTranscriptHistory] = useState([])
+  const [startTime, setStartTime] = useState(null)
+  const [elapsedTime, setElapsedTime] = useState(0)
+  const [remainingTime, setRemainingTime] = useState(0)
   
-  // Controls state
+  // Audio/Video controls
   const [isMuted, setIsMuted] = useState(false)
   const [isVolumeOn, setIsVolumeOn] = useState(true)
-  const [isPaused, setIsPaused] = useState(false)
-  const [showSettings, setShowSettings] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
   
-  // Timer state
-  const [duration, setDuration] = useState(0)
-  const [isTimerRunning, setIsTimerRunning] = useState(false)
-  const timerRef = useRef(null)
-  const questionTimeout = useRef(null)
-  const followUpTimeout = useRef(null)
+  // UI state
+  const [showTranscript, setShowTranscript] = useState(true)
+  const [showSettings, setShowSettings] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
   
-  // Interview data
-  const [questionCount, setQuestionCount] = useState(0)
-  const [totalQuestions] = useState(10) // Default total questions
-  
-  // Load interview data
-  useEffect(() => {
-    const fetchInterview = async () => {
-      try {
-        setLoading(true)
-        const result = await getInterview(id)
-        if (result.success) {
-          setInterview(result.interview)
-          await initializeInterviewSystem(result.interview)
-        } else {
-          console.error('Interview not found')
-          navigate('/dashboard')
-        }
-      } catch (error) {
-        console.error('Failed to fetch interview:', error)
-        console.error('Failed to load interview')
-        navigate('/dashboard')
-      } finally {
-        setLoading(false)
-      }
-    }
+  // Service state
+  const [serviceMode, setServiceMode] = useState(null)
+  const [serviceConnected, setServiceConnected] = useState(false)
 
+  /**
+   * Initialize interview session
+   */
+  useEffect(() => {
     if (id) {
-      fetchInterview()
+      initializeInterview()
     }
   }, [id])
 
-  // Initialize interview systems
-  const initializeInterviewSystem = async (_interviewData) => {
-    try {
-      setIsInitializing(true)
-      setError(null)
-      
-      // Initialize VAPI service
-      const vapiInitialized = vapiService.initialize(import.meta.env.VITE_VAPI_PUBLIC_KEY)
-      if (!vapiInitialized) {
-        throw new Error('Failed to initialize VAPI service')
-      }
-      
-      // Generate potential follow-up questions based on interview type
-      generateFollowUpQuestions(_interviewData)
-      
-      // Initialize Web Speech Service
-      const webSpeechInitialized = webSpeechService.initialize()
-      if (webSpeechInitialized) {
-        webSpeechService.setCallbacks({
-          onTranscript: (transcriptData) => {
-            if (transcriptData.isFinal) {
-              setTranscript(prev => prev + ' ' + transcriptData.text)
-              
-              // Update transcript history based on role
-              const speaker = transcriptData.role === 'interviewer' ? 'AI Interviewer' : 'You'
-              updateTranscriptHistory(speaker, transcriptData.text)
-            }
-          },
-          onError: (error) => {
-            setError(error.message)
-            console.error('Speech recognition error: ' + error.message)
-          },
-          onQuestionGenerated: (question) => {
-            setCurrentQuestion(question)
-            setQuestionCount(prev => prev + 1)
-            
-            // Update transcript history with AI question
-            updateTranscriptHistory('AI Interviewer', question)
-          }
-        })
-      }
-      
-      // Setup VAPI event listeners
-      vapiService.setCallbacks({
-        onCallStart: () => {
-          console.log('VAPI call started')
-          setCallStatus('connected')
-          _setIsConnected(true)
-          startTimer()
-          console.log('Connected to AI interviewer!')
-        },
-        onCallEnd: () => {
-          console.log('VAPI call ended')
-          setCallStatus('ended')
-          _setIsConnected(false)
-          stopTimer()
-        },
-        onError: (error) => {
-          console.error('VAPI error:', error)
-          setError(error.message)
-          setCallStatus('idle')
-          _setIsConnected(false)
-          console.error('Speech recognition error: ' + error.message)
-        },
-        onMessage: (message) => {
-          console.log('VAPI message:', message)
-          if (message.type === 'transcript') {
-            setTranscript(prev => prev + ' ' + message.text)
-            // Update transcript history with AI response
-            if (message.role === 'assistant') {
-              updateTranscriptHistory('AI Interviewer', message.text)
-            } else {
-              updateTranscriptHistory('You', message.text)
-            }
-          }
-        },
-        onTranscript: (transcript) => {
-          setTranscript(prev => prev + ' ' + transcript)
-          // Update transcript history with user response
-          updateTranscriptHistory('You', transcript)
+  /**
+   * Timer effect
+   */
+  useEffect(() => {
+    if (sessionStatus === 'active' && startTime) {
+      timerRef.current = setInterval(() => {
+        const now = Date.now()
+        const elapsed = Math.floor((now - startTime) / 1000)
+        const remaining = Math.max(0, (interview?.configuration?.duration * 60) - elapsed)
+        
+        setElapsedTime(elapsed)
+        setRemainingTime(remaining)
+        
+        // Auto-end interview when time is up
+        if (remaining === 0) {
+          handleEndInterview()
         }
-      })
-      
-    } catch (error) {
-      console.error('❌ Failed to initialize interview system:', error)
-      setError(error.message)
-      console.error('Failed to initialize interview system: ' + error.message)
-    } finally {
-      setIsInitializing(false)
-    }
-  }
-
-  // Generate follow-up questions based on interview type and current question
-  const generateFollowUpQuestions = (interviewData) => {
-    if (!interviewData) return
-    
-    // Sample follow-up questions based on interview type
-    const followUpsByType = {
-      hr: [
-        "Can you provide a specific example of that?",
-        "How did you handle challenges in that situation?",
-        "What did you learn from that experience?",
-        "How would you approach this differently now?",
-        "How does this relate to the role you're applying for?"
-      ],
-      technical: [
-        "Can you explain your approach in more detail?",
-        "What are the time and space complexity of your solution?",
-        "How would you optimize this solution further?",
-        "What edge cases should we consider?",
-        "How would you scale this solution?"
-      ]
-    }
-    
-    // Set initial follow-up questions based on interview type
-    const interviewType = interviewData.type || 'hr'
-    setFollowUpQuestions(followUpsByType[interviewType] || followUpsByType.hr)
-  }
-  
-  // Update transcript history with new entries
-  const updateTranscriptHistory = (speaker, text) => {
-    if (!text) return
-    
-    setTranscriptHistory(prev => [
-      ...prev,
-      { speaker, text, timestamp: new Date().toISOString() }
-    ])
-  }
-  
-  // Timer functions
-  const startTimer = () => {
-    if (!isTimerRunning) {
-      // Clear any existing timer first
+      }, 1000)
+    } else {
       if (timerRef.current) {
         clearInterval(timerRef.current)
         timerRef.current = null
       }
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+      }
+    }
+  }, [sessionStatus, startTime, interview])
+
+  /**
+   * Cleanup on unmount
+   */
+  useEffect(() => {
+    return () => {
+      cleanup()
+    }
+  }, [])
+
+  /**
+   * Load interview data
+   */
+  const initializeInterview = async () => {
+    try {
+      setLoading(true)
+      setError(null)
       
-      setIsTimerRunning(true)
-      timerRef.current = setInterval(() => {
-        setDuration(prev => prev + 1)
-      }, 1000)
+      const result = await getInterview(id)
+      
+      if (result.success) {
+        const interviewData = result.interview
+        setInterview(interviewData)
+        setServiceMode(interviewData.configuration.interviewMode)
+        setRemainingTime(interviewData.configuration.duration * 60)
+        
+        // Initialize questions
+        await generateInitialQuestions(interviewData)
+        
+        console.log('Interview loaded:', interviewData)
+      } else {
+        setError(result.message || 'Failed to load interview')
+        toast.error('Failed to load interview')
+      }
+    } catch (error) {
+      console.error('Failed to initialize interview:', error)
+      setError('Failed to initialize interview')
+      toast.error('Failed to initialize interview')
+    } finally {
+      setLoading(false)
     }
   }
 
-  const stopTimer = () => {
-    setIsTimerRunning(false)
+  /**
+   * Generate initial questions based on interview configuration
+   */
+  const generateInitialQuestions = async (interviewData) => {
+    try {
+      // Use custom questions if provided
+      if (interviewData.configuration.customQuestions?.length > 0) {
+        setQuestions(interviewData.configuration.customQuestions)
+        setCurrentQuestion(interviewData.configuration.customQuestions[0])
+        return
+      }
+
+      // Generate questions using AI
+      const questionData = {
+        interviewType: interviewData.type,
+        role: interviewData.candidateInfo.role,
+        company: interviewData.candidateInfo.company,
+        experience: interviewData.candidateInfo.experience,
+        topics: [...(interviewData.configuration.topics || []), ...(interviewData.configuration.customTopics || [])],
+        difficulty: interviewData.configuration.difficulty,
+        numQuestions: interviewData.configuration.numQuestions,
+        jobDescription: interviewData.configuration.jobDescription
+      }
+
+      // For now, use fallback questions
+      const fallbackQuestions = generateFallbackQuestions(interviewData)
+      setQuestions(fallbackQuestions)
+      setCurrentQuestion(fallbackQuestions[0])
+      
+    } catch (error) {
+      console.error('Failed to generate questions:', error)
+      const fallbackQuestions = generateFallbackQuestions(interviewData)
+      setQuestions(fallbackQuestions)
+      setCurrentQuestion(fallbackQuestions[0])
+    }
+  }
+
+  /**
+   * Generate fallback questions based on interview type
+   */
+  const generateFallbackQuestions = (interviewData) => {
+    const baseQuestions = {
+      hr: [
+        "Tell me about yourself and your background.",
+        "Why are you interested in this role?",
+        "What are your greatest strengths?",
+        "Describe a challenging situation you faced and how you handled it.",
+        "How do you handle stress and pressure?",
+        "Where do you see yourself in 5 years?",
+        "Why do you want to work at our company?",
+        "Do you have any questions for me?"
+      ],
+      technical: [
+        "Walk me through your technical background.",
+        "What programming languages are you most comfortable with?",
+        "Explain a complex technical project you've worked on.",
+        "How do you approach debugging a difficult problem?",
+        "What's your experience with system design?",
+        "How do you stay updated with new technologies?",
+        "Describe your development workflow.",
+        "What questions do you have about our technical stack?"
+      ],
+      managerial: [
+        "Tell me about your leadership experience.",
+        "How do you motivate your team?",
+        "Describe a difficult management decision you had to make.",
+        "How do you handle conflicts within your team?",
+        "What's your approach to performance management?",
+        "How do you prioritize tasks and projects?",
+        "Describe your management style.",
+        "What questions do you have about the team you'd be managing?"
+      ],
+      custom: [
+        "Tell me about yourself.",
+        "Why are you interested in this position?",
+        "What are your key strengths?",
+        "Describe a challenge you've overcome.",
+        "How do you handle difficult situations?",
+        "What are your career goals?",
+        "Why should we hire you?",
+        "Do you have any questions for me?"
+      ]
+    }
+
+    return baseQuestions[interviewData.type] || baseQuestions.custom
+  }
+
+  /**
+   * Start the interview session
+   */
+  const handleStartInterview = async () => {
+    try {
+      setSessionStatus('initializing')
+      setError(null)
+      
+      // Initialize the appropriate service
+      if (serviceMode === INTERVIEW_MODES.VAPI) {
+        await initializeVapiService()
+      } else {
+        await initializeWebSpeechService()
+      }
+      
+      // Update interview status
+      await updateInterview(id, {
+        status: INTERVIEW_STATUS.IN_PROGRESS,
+        session: {
+          startTime: new Date(),
+          transcript: '',
+          recording: {}
+        }
+      })
+      
+      setStartTime(Date.now())
+      setSessionStatus('active')
+      toast.success('Interview started!')
+      
+    } catch (error) {
+      console.error('Failed to start interview:', error)
+      setError('Failed to start interview')
+      setSessionStatus('idle')
+      toast.error('Failed to start interview')
+    }
+  }
+
+  /**
+   * Initialize VAPI service
+   */
+  const initializeVapiService = async () => {
+    try {
+      const publicKey = import.meta.env.VITE_VAPI_PUBLIC_KEY
+      if (!publicKey) {
+        throw new Error('VAPI public key not configured')
+      }
+
+      const initialized = await vapiService.initialize(publicKey)
+      if (!initialized) {
+        throw new Error('Failed to initialize VAPI service')
+      }
+
+      // Set up VAPI callbacks
+      vapiService.setCallbacks({
+        onCallStart: () => {
+          console.log('VAPI call started')
+          setServiceConnected(true)
+        },
+        onCallEnd: () => {
+          console.log('VAPI call ended')
+          setServiceConnected(false)
+          if (sessionStatus === 'active') {
+            handleEndInterview()
+          }
+        },
+        onTranscript: (transcriptData) => {
+          handleTranscriptUpdate(transcriptData)
+        },
+        onError: (error) => {
+          console.error('VAPI error:', error)
+          toast.error('Voice service error. Switching to fallback mode.')
+          // Switch to web speech as fallback
+          setServiceMode(INTERVIEW_MODES.WEB_SPEECH)
+          initializeWebSpeechService()
+        }
+      })
+
+      // Start VAPI call
+      const callResult = await vapiService.startCall(interview.type, {
+        interviewId: id,
+        candidateInfo: interview.candidateInfo,
+        type: interview.type,
+        difficulty: interview.configuration.difficulty
+      })
+
+      if (!callResult.success) {
+        throw new Error('Failed to start VAPI call')
+      }
+
+    } catch (error) {
+      console.error('VAPI initialization failed:', error)
+      // Fallback to Web Speech
+      toast.error('Premium voice mode unavailable. Using fallback mode.')
+      setServiceMode(INTERVIEW_MODES.WEB_SPEECH)
+      await initializeWebSpeechService()
+    }
+  }
+
+  /**
+   * Initialize Web Speech service
+   */
+  const initializeWebSpeechService = async () => {
+    try {
+      const initialized = await webSpeechService.initialize(interview.type)
+      if (!initialized) {
+        throw new Error('Web Speech API not supported')
+      }
+
+      // Set up Web Speech callbacks
+      webSpeechService.setCallbacks({
+        onTranscript: (transcriptData) => {
+          handleTranscriptUpdate(transcriptData)
+        },
+        onSpeechStart: () => {
+          console.log('User started speaking')
+        },
+        onSpeechEnd: (finalText) => {
+          console.log('User finished speaking:', finalText)
+          handleUserResponse(finalText)
+        },
+        onError: (error) => {
+          console.error('Web Speech error:', error)
+          toast.error('Speech recognition error')
+        },
+        shouldRestart: () => sessionStatus === 'active'
+      })
+
+      // Start the first question
+      await askQuestion(currentQuestion)
+      setServiceConnected(true)
+
+    } catch (error) {
+      console.error('Web Speech initialization failed:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Ask a question using the current service
+   */
+  const askQuestion = async (question) => {
+    try {
+      setIsProcessing(true)
+      
+      if (serviceMode === INTERVIEW_MODES.VAPI) {
+        // VAPI handles questions automatically
+        return
+      } else {
+        // Use Web Speech TTS
+        await webSpeechService.speak(question)
+        
+        // Add to transcript
+        addToTranscript('assistant', question)
+        
+        // Start listening for response
+        webSpeechService.startListening()
+      }
+    } catch (error) {
+      console.error('Failed to ask question:', error)
+      toast.error('Failed to ask question')
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  /**
+   * Handle user response (Web Speech mode)
+   */
+  const handleUserResponse = async (response) => {
+    if (!response.trim()) return
+
+    try {
+      // Add user response to transcript
+      addToTranscript('user', response)
+      
+      // Move to next question or generate follow-up
+      const nextIndex = questionIndex + 1
+      if (nextIndex < questions.length) {
+        setQuestionIndex(nextIndex)
+        setCurrentQuestion(questions[nextIndex])
+        
+        // Ask next question after a brief pause
+        setTimeout(() => {
+          askQuestion(questions[nextIndex])
+        }, 2000)
+      } else {
+        // Interview completed
+        handleEndInterview()
+      }
+    } catch (error) {
+      console.error('Failed to handle user response:', error)
+    }
+  }
+
+  /**
+   * Handle transcript updates
+   */
+  const handleTranscriptUpdate = (transcriptData) => {
+    if (transcriptData.isFinal) {
+      addToTranscript(transcriptData.role || 'user', transcriptData.text)
+    } else {
+      // Update live transcript for interim results
+      setTranscript(transcriptData.text)
+    }
+  }
+
+  /**
+   * Add message to transcript history
+   */
+  const addToTranscript = (role, text) => {
+    const timestamp = new Date()
+    const entry = {
+      role,
+      text,
+      timestamp,
+      id: Date.now() + Math.random()
+    }
+    
+    setTranscriptHistory(prev => [...prev, entry])
+    setTranscript('') // Clear interim transcript
+    
+    // Auto-scroll transcript
+    setTimeout(() => {
+      if (transcriptRef.current) {
+        transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight
+      }
+    }, 100)
+  }
+
+  /**
+   * Handle mute toggle
+   */
+  const handleMuteToggle = () => {
+    const newMutedState = !isMuted
+    setIsMuted(newMutedState)
+    
+    if (serviceMode === INTERVIEW_MODES.VAPI) {
+      vapiService.setMuted(newMutedState)
+    } else {
+      webSpeechService.setMuted(newMutedState)
+    }
+  }
+
+  /**
+   * Handle volume toggle
+   */
+  const handleVolumeToggle = () => {
+    const newVolumeState = !isVolumeOn
+    setIsVolumeOn(newVolumeState)
+    
+    if (serviceMode === INTERVIEW_MODES.WEB_SPEECH) {
+      webSpeechService.setVolume(newVolumeState ? 1 : 0)
+    }
+  }
+
+  /**
+   * Handle pause/resume
+   */
+  const handlePauseToggle = () => {
+    if (sessionStatus === 'active') {
+      setSessionStatus('paused')
+      if (serviceMode === INTERVIEW_MODES.WEB_SPEECH) {
+        webSpeechService.stopListening()
+      }
+      toast.success('Interview paused')
+    } else if (sessionStatus === 'paused') {
+      setSessionStatus('active')
+      if (serviceMode === INTERVIEW_MODES.WEB_SPEECH) {
+        webSpeechService.startListening()
+      }
+      toast.success('Interview resumed')
+    }
+  }
+
+  /**
+   * Skip to next question
+   */
+  const handleSkipQuestion = () => {
+    if (questionIndex < questions.length - 1) {
+      const nextIndex = questionIndex + 1
+      setQuestionIndex(nextIndex)
+      setCurrentQuestion(questions[nextIndex])
+      
+      if (serviceMode === INTERVIEW_MODES.WEB_SPEECH) {
+        askQuestion(questions[nextIndex])
+      }
+    }
+  }
+
+  /**
+   * End the interview
+   */
+  const handleEndInterview = async () => {
+    try {
+      setSessionStatus('ended')
+      
+      // Stop services
+      cleanup()
+      
+      // Prepare final transcript
+      const finalTranscript = transcriptHistory
+        .map(entry => `${entry.role}: ${entry.text}`)
+        .join('\n')
+      
+      // Update interview with final data
+      await updateInterview(id, {
+        status: INTERVIEW_STATUS.COMPLETED,
+        session: {
+          ...interview.session,
+          endTime: new Date(),
+          actualDuration: Math.floor(elapsedTime / 60),
+          transcript: finalTranscript
+        }
+      })
+      
+      // Start evaluation
+      setIsProcessing(true)
+      toast.success('Interview completed! Generating evaluation...')
+      
+      const evaluationResult = await evaluateInterview(id, finalTranscript)
+      
+      if (evaluationResult.success) {
+        toast.success('Evaluation completed!')
+        navigate(`/interview/report/${id}`)
+      } else {
+        toast.error('Evaluation failed, but interview was saved')
+        navigate(`/interview/report/${id}`)
+      }
+      
+    } catch (error) {
+      console.error('Failed to end interview:', error)
+      toast.error('Failed to save interview')
+      navigate('/dashboard')
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  /**
+   * Cleanup services
+   */
+  const cleanup = () => {
+    if (serviceMode === INTERVIEW_MODES.VAPI) {
+      vapiService.cleanup()
+    } else if (serviceMode === INTERVIEW_MODES.WEB_SPEECH) {
+      webSpeechService.cleanup()
+    }
+    
+    setServiceConnected(false)
+    
     if (timerRef.current) {
       clearInterval(timerRef.current)
       timerRef.current = null
     }
   }
 
-  const pauseTimer = () => {
-    if (isTimerRunning) {
-      stopTimer()
-    } else {
-      startTimer()
-    }
-  }
-
-  // Format duration
-  const formatDuration = (seconds) => {
+  /**
+   * Format time display
+   */
+  const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
 
-  // Handle VAPI service errors
-  const _handleVapiError = (error) => {
-    console.error('VAPI Service Error:', error)
-    setError('VAPI service error. Please try again or contact support.')
-    setCallStatus('idle')
-    _setIsConnected(false)
-    console.error('VAPI service error. Please try again or contact support.')
-  }
-
-  // Start interview
-  const startInterview = async () => {
-    try {
-      setCallStatus('connecting')
-      setError(null)
-      
-      const interviewMode = interview.configuration?.interviewMode || 'webspeech'
-      
-      if (interviewMode === 'vapi') {
-        // Try VAPI first
-        try {
-          const result = await vapiService.startCall(interview.type, {
-            interviewId: interview._id,
-            candidateInfo: interview.candidateInfo,
-            type: interview.type,
-            difficulty: interview.configuration.difficulty
-          })
-          
-          if (result.success) {
-            setCallStatus('connected')
-            _setIsConnected(true)
-            startTimer()
-            console.log('Connected to VAPI AI interviewer!')
-            return
-          }
-        } catch (vapiError) {
-          console.error('VAPI failed, falling back to Web Speech API:', vapiError)
-          // Fall back to Web Speech API
-        }
-      }
-      
-      // Use Web Speech API (either by choice or as fallback)
-      const webSpeechResult = await webSpeechService.startInterview({
-        type: interview.type,
-        candidateInfo: interview.candidateInfo,
-        configuration: interview.configuration
-      })
-      
-      if (webSpeechResult) {
-        setCallStatus('connected')
-        _setIsConnected(true)
-        startTimer()
-        console.log('Connected to Web Speech API interviewer!')
-        
-        if (interviewMode === 'vapi') {
-          setError('VAPI unavailable - using Web Speech API fallback mode')
-        }
-      }
-      
-    } catch (error) {
-      console.error('Failed to start interview:', error)
-      setError(error.message)
-      setCallStatus('idle')
-      console.error('Failed to start interview: ' + error.message)
+  /**
+   * Get interviewer persona info
+   */
+  const getInterviewerPersona = () => {
+    const personas = {
+      hr: { name: 'Sarah', title: 'HR Manager', avatar: '👩‍💼' },
+      technical: { name: 'Alex', title: 'Technical Lead', avatar: '👨‍💻' },
+      managerial: { name: 'Michael', title: 'Senior Manager', avatar: '👨‍💼' },
+      custom: { name: 'Jordan', title: 'Interviewer', avatar: '👤' }
     }
-  }
-
-  // Toggle mute
-  const toggleMute = async () => {
-    try {
-      const newMutedState = !isMuted
-      
-      if (vapiService.isCallActive()) {
-        // Handle VAPI mute
-        // Note: Actual VAPI mute implementation would go here
-        console.log('VAPI mute toggle:', newMutedState)
-      }
-      
-      // Handle web speech mute
-      if (newMutedState) {
-        webSpeechService.stop()
-      } else {
-        webSpeechService.start()
-      }
-      
-      setIsMuted(newMutedState)
-      console.log(newMutedState ? 'Microphone muted' : 'Microphone unmuted')
-    } catch (error) {
-      console.error('Failed to toggle mute:', error)
-      console.error('Failed to toggle microphone')
-    }
-  }
-
-  // Toggle volume
-  const toggleVolume = () => {
-    const newVolumeState = !isVolumeOn
-    setIsVolumeOn(newVolumeState)
     
-    // Handle volume control
-    // Note: Actual volume control implementation would go here
-    
-    console.log(newVolumeState ? 'Volume unmuted' : 'Volume muted')
+    return personas[interview?.type] || personas.custom
   }
-
-  // Toggle pause
-  const togglePause = async () => {
-    try {
-      const newPausedState = !isPaused
-      
-      if (newPausedState) {
-        pauseTimer()
-        // Pause VAPI call if needed
-      } else {
-        startTimer()
-        // Resume VAPI call if needed
-      }
-      
-      setIsPaused(newPausedState)
-      console.log(newPausedState ? 'Interview paused' : 'Interview resumed')
-    } catch (error) {
-      console.error('Failed to toggle pause:', error)
-      console.error('Failed to pause/resume interview')
-    }
-  }
-
-  // End interview
-  const endInterview = async () => {
-    try {
-      setCallStatus('ended')
-      stopTimer()
-      
-      // Stop VAPI call if active
-      if (vapiService.isCallActive()) {
-        await vapiService.stopCall()
-      }
-      
-      // Stop web speech
-      webSpeechService.cleanup()
-      
-      // Prepare final transcript
-      const finalTranscript = transcript.trim() || webSpeechService.getTranscript()
-      
-      // Format transcript history for evaluation
-      const formattedTranscriptHistory = transcriptHistory.map(entry => 
-        `[${new Date(entry.timestamp).toLocaleTimeString()}] ${entry.speaker}: ${entry.text}`
-      ).join('\n\n')
-      
-      console.log('Interview completed! Generating evaluation...')
-      
-      // Use transcript history if available, otherwise fall back to simple transcript
-      const transcriptForEvaluation = formattedTranscriptHistory || finalTranscript
-      
-      const result = await evaluateInterview(id, transcriptForEvaluation)
-      if (result.success) {
-        navigate(`/interview/report/${id}`)
-      } else {
-        console.error('Failed to evaluate interview')
-        navigate(`/interview/report/${id}`)
-      }
-    } catch (error) {
-      console.error('Failed to end interview:', error)
-      console.error('Failed to end interview')
-    }
-  }
-
-  // Toggle fullscreen
-  const toggleFullscreen = () => {
-    setIsFullscreen(!isFullscreen)
-  }
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      // Clear all timers
-      if (timerRef.current) {
-        clearInterval(timerRef.current)
-        timerRef.current = null
-      }
-      
-      // Clear any pending timeouts
-      const timeouts = [questionTimeout, followUpTimeout]
-      timeouts.forEach(timeout => {
-        if (timeout) {
-          clearTimeout(timeout)
-        }
-      })
-      
-      // Cleanup services
-      try {
-        vapiService.removeAllListeners()
-        vapiService.cleanup()
-      } catch (error) {
-        console.warn('Error removing VAPI listeners:', error)
-      }
-      
-      try {
-        webSpeechService.cleanup()
-      } catch (error) {
-        console.warn('Error cleaning up web speech service:', error)
-      }
-      
-      // Reset state
-      setCallStatus('idle')
-      setIsConnected(false)
-      setIsTimerRunning(false)
-    }
-  }, [])
 
   // Loading state
-  if (loading || isInitializing) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="relative">
-            <Loader className="w-16 h-16 mx-auto mb-6 text-blue-400 animate-spin" />
-            <div className="absolute inset-0 w-16 h-16 mx-auto border-4 border-blue-400/20 rounded-full animate-pulse"></div>
-          </div>
-          <h2 className="text-2xl font-bold text-white mb-2">
-            {loading ? 'Loading Interview...' : 'Initializing AI Assistant...'}
-          </h2>
-          <p className="text-blue-200">
-            {loading ? 'Preparing your interview session' : 'Setting up voice recognition and AI systems'}
-          </p>
+          <Loader className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-4" />
+          <p className="text-white">Loading interview...</p>
         </div>
       </div>
     )
   }
 
   // Error state
-  if (!interview) {
+  if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <AlertCircle className="w-16 h-16 mx-auto mb-4 text-red-400" />
-          <h2 className="text-2xl font-bold text-white mb-2">Interview Not Found</h2>
-          <p className="text-gray-300">The interview session could not be loaded.</p>
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-white mb-2">Interview Error</h2>
+          <p className="text-gray-400 mb-4">{error}</p>
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Back to Dashboard
+          </button>
         </div>
       </div>
     )
   }
 
+  const persona = getInterviewerPersona()
+
   return (
-    <div className={`min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 text-white ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}>
+    <div className={`min-h-screen bg-gray-900 ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}>
       {/* Header */}
-      <header className="bg-black/20 backdrop-blur-md border-b border-white/10 px-6 py-4">
+      <div className="bg-gray-800 border-b border-gray-700 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <Brain className="h-8 w-8 text-blue-400" />
-              <span className="text-xl font-bold">InterviewMate</span>
+              <Brain className="w-6 h-6 text-blue-500" />
+              <h1 className="text-xl font-semibold text-white">
+                {INTERVIEW_TYPE_LABELS[interview?.type]} Interview
+              </h1>
             </div>
-            <div className="h-6 w-px bg-gray-600"></div>
-            <div className="text-sm text-gray-300">
-              <span className="font-medium">{interview.candidateInfo.name}</span>
-              <span className="mx-2">•</span>
-              <span>{interview.candidateInfo.role}</span>
+            <div className="flex items-center space-x-2 text-sm text-gray-400">
+              <span>{interview?.candidateInfo?.role}</span>
+              <span>•</span>
+              <span>{interview?.candidateInfo?.company}</span>
             </div>
           </div>
           
-          <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-4">
             {/* Timer */}
-            <div className="flex items-center space-x-2">
-              <Clock className="h-4 w-4 text-gray-400" />
-              <span className="text-sm font-mono">{formatDuration(duration)}</span>
+            <div className="flex items-center space-x-2 text-white">
+              <Clock className="w-4 h-4" />
+              <span className="font-mono">
+                {formatTime(elapsedTime)} / {formatTime(interview?.configuration?.duration * 60)}
+              </span>
             </div>
             
             {/* Progress */}
-            <div className="flex items-center space-x-2">
-              <div className="text-xs text-gray-400">
-                <span className="font-medium">{questionCount}</span>/{totalQuestions}
-              </div>
-              <div className="w-32 h-1 bg-gray-700 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300"
-                  style={{ width: `${(questionCount / totalQuestions) * 100}%` }}
-                ></div>
-              </div>
+            <div className="flex items-center space-x-2 text-white">
+              <BarChart3 className="w-4 h-4" />
+              <span>{questionIndex + 1} / {questions.length}</span>
             </div>
             
-            {/* Controls */}
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => setShowSettings(!showSettings)}
-                className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
-              >
-                <Settings className="h-4 w-4" />
-              </button>
-              <button
-                onClick={toggleFullscreen}
-                className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
-              >
-                {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
-              </button>
+            {/* Status */}
+            <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+              sessionStatus === 'active' ? 'bg-green-100 text-green-800' :
+              sessionStatus === 'paused' ? 'bg-yellow-100 text-yellow-800' :
+              sessionStatus === 'ended' ? 'bg-red-100 text-red-800' :
+              'bg-gray-100 text-gray-800'
+            }`}>
+              {sessionStatus.charAt(0).toUpperCase() + sessionStatus.slice(1)}
             </div>
           </div>
         </div>
-      </header>
+      </div>
 
       <div className="flex h-[calc(100vh-80px)]">
         {/* Main Interview Area */}
         <div className="flex-1 flex flex-col">
-          {/* AI Interviewer Section */}
-          <div className="flex-1 flex items-center justify-center relative overflow-hidden">
-            {/* Background Effects */}
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-purple-900/20 to-pink-900/20"></div>
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.1)_0%,transparent_50%)] animate-pulse"></div>
-            
-            <div className="relative z-10 text-center max-w-2xl mx-auto px-6">
-              {/* AI Interviewer Avatar */}
-              <div className="mb-8">
-                <div className="relative">
-                  <div className={`w-32 h-32 mx-auto rounded-full bg-gradient-to-br from-blue-500 to-purple-600 p-1 ${callStatus === 'connected' ? 'animate-pulse' : ''}`}>
-                    <div className="w-full h-full rounded-full bg-gray-800 flex items-center justify-center overflow-hidden">
-                      <img 
-                        src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face" 
-                        alt="AI Interviewer" 
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  </div>
-                  
-                  {/* Status Indicator */}
-                  <div className={`absolute -bottom-2 -right-2 w-8 h-8 rounded-full border-4 border-gray-900 flex items-center justify-center ${
-                    callStatus === 'connected' ? 'bg-green-500' : 
-                    callStatus === 'connecting' ? 'bg-yellow-500' : 'bg-gray-500'
-                  }`}>
-                    <div className="w-3 h-3 rounded-full bg-white"></div>
-                  </div>
+          {/* Video/Avatar Area */}
+          <div className="flex-1 bg-gray-800 relative">
+            {/* Interviewer Persona */}
+            <div className="absolute top-6 left-6 bg-gray-700 rounded-lg p-4 max-w-sm">
+              <div className="flex items-center space-x-3">
+                <div className="text-3xl">{persona.avatar}</div>
+                <div>
+                  <h3 className="font-medium text-white">{persona.name}</h3>
+                  <p className="text-sm text-gray-400">{persona.title}</p>
                 </div>
+                {serviceConnected && (
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                )}
               </div>
-              
-              {/* Interviewer Info */}
-              <div className="mb-8">
-                <h3 className="text-2xl font-bold mb-2">Alex Chen</h3>
-                <p className="text-blue-200 mb-1">Senior Technical Interviewer</p>
-                <div className="flex items-center justify-center space-x-4 text-sm text-gray-400">
-                  <div className="flex items-center space-x-1">
-                    <span>🏢</span>
-                    <span>Tech Corp</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <span>⭐</span>
-                    <span>4.9/5</span>
-                  </div>
-                </div>
-              </div>
+            </div>
 
-              {/* Current Question Display */}
-              {currentQuestion && callStatus === 'connected' && (
-                <div className="mb-8 p-6 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20">
-                  <div className="flex items-start space-x-3">
-                    <div className="flex-shrink-0 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                      <span className="text-sm font-bold">{questionCount}</span>
-                    </div>
-                    <p className="text-lg text-left">{currentQuestion}</p>
+            {/* Current Question Display */}
+            {currentQuestion && sessionStatus === 'active' && (
+              <div className="absolute bottom-6 left-6 right-6 bg-gray-700 rounded-lg p-4">
+                <div className="flex items-start space-x-3">
+                  <MessageSquare className="w-5 h-5 text-blue-500 mt-1 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-white">{currentQuestion}</p>
+                    {isProcessing && (
+                      <div className="flex items-center space-x-2 mt-2 text-gray-400">
+                        <Loader className="w-4 h-4 animate-spin" />
+                        <span className="text-sm">Processing...</span>
+                      </div>
+                    )}
                   </div>
-                  
-                  {/* Follow-up Questions */}
-                  {followUpQuestions.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-white/20">
-                      <h4 className="text-sm font-medium text-gray-300 mb-2">Potential Follow-up Questions:</h4>
-                      <ul className="space-y-2">
-                        {followUpQuestions.map((question, index) => (
-                          <li key={index} className="text-sm text-gray-300 flex items-start">
-                            <span className="flex w-5 h-5 rounded-full bg-blue-600/50 text-blue-200 text-xs items-center justify-center mr-2 mt-0.5 flex-shrink-0">{index + 1}</span>
-                            {question}
-                          </li>
-                        ))}
-                      </ul>
+                </div>
+              </div>
+            )}
+
+            {/* Center Content */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              {sessionStatus === 'idle' && (
+                <div className="text-center">
+                  <div className="text-6xl mb-4">{persona.avatar}</div>
+                  <h2 className="text-2xl font-semibold text-white mb-2">
+                    Ready to start your interview?
+                  </h2>
+                  <p className="text-gray-400 mb-6">
+                    You'll be interviewed by {persona.name}, your {persona.title}
+                  </p>
+                  <button
+                    onClick={handleStartInterview}
+                    disabled={sessionStatus === 'initializing'}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 mx-auto"
+                  >
+                    {sessionStatus === 'initializing' ? (
+                      <>
+                        <Loader className="w-5 h-5 animate-spin" />
+                        <span>Initializing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-5 h-5" />
+                        <span>Start Interview</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {sessionStatus === 'ended' && (
+                <div className="text-center">
+                  <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                  <h2 className="text-2xl font-semibold text-white mb-2">
+                    Interview Completed!
+                  </h2>
+                  <p className="text-gray-400 mb-6">
+                    Generating your evaluation report...
+                  </p>
+                  {isProcessing && (
+                    <div className="flex items-center justify-center space-x-2">
+                      <Loader className="w-5 h-5 animate-spin text-blue-500" />
+                      <span className="text-gray-400">Processing evaluation...</span>
                     </div>
                   )}
-                </div>
-              )}
-
-              {/* Error Display */}
-              {error && (
-                <div className="mb-8 p-4 bg-red-500/20 backdrop-blur-md rounded-xl border border-red-500/30">
-                  <div className="flex items-center space-x-2">
-                    <AlertCircle className="h-5 w-5 text-red-400" />
-                    <p className="text-red-200">{error}</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Start Interview Button */}
-              {callStatus === 'idle' && !error && (
-                <button
-                  onClick={startInterview}
-                  className="inline-flex items-center space-x-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 px-8 py-4 rounded-2xl font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg"
-                >
-                  <Play className="h-6 w-6" />
-                  <span className="text-lg">Start Interview</span>
-                </button>
-              )}
-
-              {/* Connecting State */}
-              {callStatus === 'connecting' && (
-                <div className="flex items-center justify-center space-x-3 text-blue-200">
-                  <Loader className="w-6 h-6 animate-spin" />
-                  <span className="text-lg">Connecting to AI assistant...</span>
-                </div>
-              )}
-              
-              {/* Paused State */}
-              {callStatus === 'connected' && isPaused && (
-                <div className="p-6 bg-yellow-500/20 backdrop-blur-md rounded-2xl border border-yellow-500/30">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <Pause className="h-6 w-6 text-yellow-400" />
-                  </div>
-                  <p className="text-yellow-200 text-lg">Interview Paused</p>
-                  <p className="text-yellow-300 text-sm">Click resume to continue</p>
-                </div>
-              )}
-
-              {/* Ended State */}
-              {callStatus === 'ended' && (
-                <div className="p-6 bg-green-500/20 backdrop-blur-md rounded-2xl border border-green-500/30">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <Brain className="h-6 w-6 text-green-400" />
-                  </div>
-                  <p className="text-green-200 text-lg">Interview Completed</p>
-                  <p className="text-green-300 text-sm">Generating your performance report...</p>
                 </div>
               )}
             </div>
           </div>
 
           {/* Controls */}
-          <div className="bg-black/30 backdrop-blur-md border-t border-white/10 p-6">
-            <div className="flex items-center justify-center space-x-6">
+          <div className="bg-gray-800 border-t border-gray-700 px-6 py-4">
+            <div className="flex items-center justify-center space-x-4">
               {/* Mute Button */}
               <button
-                onClick={toggleMute}
-                disabled={callStatus !== 'connected'}
-                className={`p-4 rounded-full transition-all duration-200 ${
+                onClick={handleMuteToggle}
+                disabled={sessionStatus !== 'active' && sessionStatus !== 'paused'}
+                className={`p-3 rounded-full transition-colors ${
                   isMuted 
-                    ? 'bg-red-500 hover:bg-red-600 text-white' 
-                    : 'bg-white/20 hover:bg-white/30 text-white'
+                    ? 'bg-red-600 hover:bg-red-700' 
+                    : 'bg-gray-600 hover:bg-gray-700'
                 } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
-                {isMuted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
+                {isMuted ? (
+                  <MicOff className="w-5 h-5 text-white" />
+                ) : (
+                  <Mic className="w-5 h-5 text-white" />
+                )}
               </button>
 
               {/* Volume Button */}
               <button
-                onClick={toggleVolume}
-                disabled={callStatus !== 'connected'}
-                className={`p-4 rounded-full transition-all duration-200 ${
+                onClick={handleVolumeToggle}
+                disabled={sessionStatus !== 'active' && sessionStatus !== 'paused'}
+                className={`p-3 rounded-full transition-colors ${
                   !isVolumeOn 
-                    ? 'bg-orange-500 hover:bg-orange-600 text-white' 
-                    : 'bg-white/20 hover:bg-white/30 text-white'
+                    ? 'bg-red-600 hover:bg-red-700' 
+                    : 'bg-gray-600 hover:bg-gray-700'
                 } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
-                {isVolumeOn ? <Volume2 className="h-6 w-6" /> : <VolumeX className="h-6 w-6" />}
+                {isVolumeOn ? (
+                  <Volume2 className="w-5 h-5 text-white" />
+                ) : (
+                  <VolumeX className="w-5 h-5 text-white" />
+                )}
               </button>
 
               {/* Pause/Resume Button */}
-              <button
-                onClick={togglePause}
-                disabled={callStatus !== 'connected'}
-                className="p-4 rounded-full bg-white/20 hover:bg-white/30 text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isPaused ? <Play className="h-6 w-6" /> : <Pause className="h-6 w-6" />}
-              </button>
+              {(sessionStatus === 'active' || sessionStatus === 'paused') && (
+                <button
+                  onClick={handlePauseToggle}
+                  className="p-3 rounded-full bg-gray-600 hover:bg-gray-700 transition-colors"
+                >
+                  {sessionStatus === 'paused' ? (
+                    <Play className="w-5 h-5 text-white" />
+                  ) : (
+                    <Pause className="w-5 h-5 text-white" />
+                  )}
+                </button>
+              )}
+
+              {/* Skip Question Button */}
+              {sessionStatus === 'active' && serviceMode === INTERVIEW_MODES.WEB_SPEECH && (
+                <button
+                  onClick={handleSkipQuestion}
+                  disabled={questionIndex >= questions.length - 1}
+                  className="p-3 rounded-full bg-gray-600 hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <SkipForward className="w-5 h-5 text-white" />
+                </button>
+              )}
 
               {/* End Interview Button */}
+              {(sessionStatus === 'active' || sessionStatus === 'paused') && (
+                <button
+                  onClick={handleEndInterview}
+                  className="p-3 rounded-full bg-red-600 hover:bg-red-700 transition-colors"
+                >
+                  <PhoneOff className="w-5 h-5 text-white" />
+                </button>
+              )}
+
+              {/* Settings Button */}
               <button
-                onClick={endInterview}
-                disabled={callStatus !== 'connected'}
-                className="p-4 rounded-full bg-red-500 hover:bg-red-600 text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => setShowSettings(!showSettings)}
+                className="p-3 rounded-full bg-gray-600 hover:bg-gray-700 transition-colors"
               >
-                <PhoneOff className="h-6 w-6" />
+                <Settings className="w-5 h-5 text-white" />
+              </button>
+
+              {/* Fullscreen Button */}
+              <button
+                onClick={() => setIsFullscreen(!isFullscreen)}
+                className="p-3 rounded-full bg-gray-600 hover:bg-gray-700 transition-colors"
+              >
+                {isFullscreen ? (
+                  <Minimize className="w-5 h-5 text-white" />
+                ) : (
+                  <Maximize className="w-5 h-5 text-white" />
+                )}
               </button>
             </div>
-
-            {/* Timer Display */}
-            <div className="text-center mt-4">
-              <div className="text-2xl font-mono font-bold">
-                {formatDuration(duration)}
-              </div>
-              <div className="w-48 h-1 bg-gray-700 rounded-full overflow-hidden mx-auto mt-2">
-                <div 
-                  className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300"
-                  style={{ width: `${Math.min((duration / 1800) * 100, 100)}%` }} // 30 min max
-                ></div>
-              </div>
-            </div>
           </div>
         </div>
 
-        {/* Sidebar */}
-        <div className="w-80 bg-black/30 backdrop-blur-md border-l border-white/10 flex flex-col">
-          {/* Interview Info */}
-          <div className="p-6 border-b border-white/10">
-            <h3 className="text-lg font-semibold mb-4">Interview Details</h3>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-400">Type:</span>
-                <span className="capitalize">{interview.type}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Difficulty:</span>
-                <span className="capitalize">{interview.configuration.difficulty}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Duration:</span>
-                <span>{formatDuration(duration)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Questions:</span>
-                <span>{questionCount}/{totalQuestions}</span>
-              </div>
+        {/* Transcript Panel */}
+        {showTranscript && (
+          <div className="w-96 bg-gray-800 border-l border-gray-700 flex flex-col">
+            <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
+              <h3 className="font-medium text-white">Live Transcript</h3>
+              <button
+                onClick={() => setShowTranscript(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-          </div>
-
-          {/* Live Stats */}
-          <div className="p-6 border-b border-white/10">
-            <h3 className="text-lg font-semibold mb-4">Live Stats</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white/10 rounded-lg p-3">
-                <div className="flex items-center space-x-2 mb-1">
-                  <Activity className="h-4 w-4 text-green-400" />
-                  <span className="text-xs text-gray-300">Speaking</span>
-                </div>
-                <div className="text-lg font-bold">{callStatus === 'connected' && !isMuted ? 'Active' : 'Inactive'}</div>
-              </div>
-              <div className="bg-white/10 rounded-lg p-3">
-                <div className="flex items-center space-x-2 mb-1">
-                  <BarChart3 className="h-4 w-4 text-blue-400" />
-                  <span className="text-xs text-gray-300">Questions</span>
-                </div>
-                <div className="text-lg font-bold">{questionCount}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Transcript Preview */}
-          <div className="flex-1 p-6">
-            <h3 className="text-lg font-semibold mb-4">Live Transcript</h3>
-            <div className="bg-white/5 rounded-lg p-4 h-64 overflow-y-auto text-sm">
-              {transcript ? (
-                <p className="text-gray-300 leading-relaxed">{transcript}</p>
-              ) : (
-                <p className="text-gray-500 italic">Transcript will appear here during the interview...</p>
-              )}
-              
-              {/* Transcript History */}
-              {transcriptHistory.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-white/10">
-                  <h4 className="text-sm font-medium text-gray-400 mb-2">Conversation History:</h4>
-                  <div className="space-y-3 max-h-[200px] overflow-y-auto">
-                    {transcriptHistory.map((entry, index) => (
-                      <div key={index} className="text-sm">
-                        <div className="font-medium text-blue-400 mb-1">{entry.speaker}:</div>
-                        <p className="text-gray-300">{entry.text}</p>
-                      </div>
-                    ))}
+            
+            <div 
+              ref={transcriptRef}
+              className="flex-1 overflow-y-auto p-4 space-y-3"
+            >
+              {transcriptHistory.map((entry) => (
+                <div
+                  key={entry.id}
+                  className={`p-3 rounded-lg ${
+                    entry.role === 'assistant' 
+                      ? 'bg-blue-900/50 border-l-4 border-blue-500' 
+                      : 'bg-gray-700 border-l-4 border-green-500'
+                  }`}
+                >
+                  <div className="flex items-center space-x-2 mb-1">
+                    {entry.role === 'assistant' ? (
+                      <Brain className="w-4 h-4 text-blue-400" />
+                    ) : (
+                      <User className="w-4 h-4 text-green-400" />
+                    )}
+                    <span className="text-xs text-gray-400">
+                      {entry.timestamp.toLocaleTimeString()}
+                    </span>
                   </div>
+                  <p className="text-white text-sm">{entry.text}</p>
+                </div>
+              ))}
+              
+              {/* Live transcript */}
+              {transcript && (
+                <div className="p-3 rounded-lg bg-gray-700 border-l-4 border-yellow-500 opacity-75">
+                  <div className="flex items-center space-x-2 mb-1">
+                    <Activity className="w-4 h-4 text-yellow-400 animate-pulse" />
+                    <span className="text-xs text-gray-400">Live</span>
+                  </div>
+                  <p className="text-white text-sm">{transcript}</p>
                 </div>
               )}
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Settings Panel */}
       {showSettings && (
-        <div 
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          onClick={() => setShowSettings(false)}
-        >
-          <div
-            className="bg-gray-900 rounded-2xl p-6 w-full max-w-md border border-white/20"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold">Interview Settings</h3>
+        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Interview Settings</h3>
               <button
                 onClick={() => setShowSettings(false)}
-                className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                className="text-gray-400 hover:text-white"
               >
-                ✕
+                <X className="w-5 h-5" />
               </button>
             </div>
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Microphone Sensitivity</label>
-                <input 
-                  type="range" 
-                  min="0" 
-                  max="100" 
-                  defaultValue="50"
-                  className="w-full"
-                />
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Mode
+                </label>
+                <p className="text-white">
+                  {serviceMode === INTERVIEW_MODES.VAPI ? 'Pro Mode (VAPI)' : 'Lite Mode (Web Speech)'}
+                </p>
               </div>
               
               <div>
-                <label className="block text-sm font-medium mb-2">Speaker Volume</label>
-                <input 
-                  type="range" 
-                  min="0" 
-                  max="100" 
-                  defaultValue="75"
-                  className="w-full"
-                />
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={showTranscript}
+                    onChange={(e) => setShowTranscript(e.target.checked)}
+                    className="rounded"
+                  />
+                  <span className="text-gray-300">Show transcript</span>
+                </label>
               </div>
-              
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Auto-pause on silence</span>
-                <button className="w-12 h-6 bg-blue-600 rounded-full relative">
-                  <div className="w-5 h-5 bg-white rounded-full absolute right-0.5 top-0.5"></div>
-                </button>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Show live captions</span>
-                <button className="w-12 h-6 bg-gray-600 rounded-full relative">
-                  <div className="w-5 h-5 bg-white rounded-full absolute left-0.5 top-0.5"></div>
-                </button>
-              </div>
-            </div>
-            
-            <div className="flex space-x-3 mt-6">
-              <button
-                onClick={() => setShowSettings(false)}
-                className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => setShowSettings(false)}
-                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-              >
-                Save
-              </button>
             </div>
           </div>
         </div>

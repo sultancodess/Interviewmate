@@ -66,6 +66,17 @@ const interviewSchema = new mongoose.Schema({
     language: {
       type: String,
       default: 'en'
+    },
+    interviewMode: {
+      type: String,
+      enum: ['webspeech', 'vapi'],
+      default: 'webspeech'
+    },
+    numQuestions: {
+      type: Number,
+      default: 10,
+      min: 5,
+      max: 20
     }
   },
   vapiConfig: {

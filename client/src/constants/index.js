@@ -339,3 +339,59 @@ export const PRICING = {
   VAPI_COST_PER_MINUTE: 0.5, // in rupees
   FREE_VAPI_MINUTES: 30
 }
+
+// Missing Constants - Adding the required exports
+
+// Interview Type Descriptions
+export const INTERVIEW_TYPE_DESCRIPTIONS = {
+  [INTERVIEW_TYPES.HR]: 'Focus on behavioral questions, cultural fit, and soft skills assessment',
+  [INTERVIEW_TYPES.TECHNICAL]: 'Technical knowledge, coding problems, and system design questions',
+  [INTERVIEW_TYPES.MANAGERIAL]: 'Leadership scenarios, team management, and strategic thinking',
+  [INTERVIEW_TYPES.CUSTOM]: 'Customized interview based on your specific requirements'
+}
+
+// Interview Mode Descriptions
+export const INTERVIEW_MODE_DESCRIPTIONS = {
+  [INTERVIEW_MODES.VAPI]: 'Advanced AI-powered voice interview with real-time conversation',
+  [INTERVIEW_MODES.WEB_SPEECH]: 'Basic text-based interview using browser speech recognition'
+}
+
+// Question Count Options
+export const QUESTION_COUNT_OPTIONS = [
+  { value: 5, label: '5 Questions' },
+  { value: 8, label: '8 Questions' },
+  { value: 10, label: '10 Questions' },
+  { value: 12, label: '12 Questions' },
+  { value: 15, label: '15 Questions' },
+  { value: 20, label: '20 Questions' }
+]
+
+// File Size Limits
+export const FILE_SIZE_LIMITS = {
+  RESUME: 5 * 1024 * 1024, // 5MB
+  JD: 2 * 1024 * 1024, // 2MB
+  CUSTOM_QUESTIONS: 1 * 1024 * 1024 // 1MB
+}
+
+// Allowed File Types
+export const ALLOWED_FILE_TYPES = {
+  RESUME: ['pdf', 'doc', 'docx'],
+  JD: ['pdf', 'doc', 'docx', 'txt'],
+  CUSTOM_QUESTIONS: ['txt', 'json', 'csv']
+}
+
+// Performance Grades
+export const PERFORMANCE_GRADES = {
+  'A+': { min: 97, max: 100, color: '#10B981', label: 'Outstanding' },
+  'A': { min: 93, max: 96, color: '#059669', label: 'Excellent' },
+  'A-': { min: 90, max: 92, color: '#047857', label: 'Very Good' },
+  'B+': { min: 87, max: 89, color: '#3B82F6', label: 'Good' },
+  'B': { min: 83, max: 86, color: '#2563EB', label: 'Above Average' },
+  'B-': { min: 80, max: 82, color: '#1D4ED8', label: 'Satisfactory' },
+  'C+': { min: 77, max: 79, color: '#F59E0B', label: 'Fair' },
+  'C': { min: 73, max: 76, color: '#D97706', label: 'Average' },
+  'C-': { min: 70, max: 72, color: '#B45309', label: 'Below Average' },
+  'D+': { min: 67, max: 69, color: '#F97316', label: 'Poor' },
+  'D': { min: 65, max: 66, color: '#EA580C', label: 'Very Poor' },
+  'F': { min: 0, max: 64, color: '#DC2626', label: 'Fail' }
+}

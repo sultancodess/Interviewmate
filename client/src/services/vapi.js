@@ -124,7 +124,9 @@ class VapiService {
   getAssistantId(interviewType) {
     const assistantIds = {
       'hr': import.meta.env.VITE_VAPI_HR_ASSISTANT_ID,
-      'technical': import.meta.env.VITE_VAPI_TECHNICAL_ASSISTANT_ID
+      'technical': import.meta.env.VITE_VAPI_TECHNICAL_ASSISTANT_ID,
+      'managerial': import.meta.env.VITE_VAPI_MANAGERIAL_ASSISTANT_ID,
+      'custom': import.meta.env.VITE_VAPI_CUSTOM_ASSISTANT_ID
     }
     
     return assistantIds[interviewType] || assistantIds['hr'] // Default to HR if type not found

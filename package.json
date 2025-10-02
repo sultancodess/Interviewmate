@@ -25,7 +25,14 @@
     "health:check": "curl -f http://localhost:5001/api/health || exit 1",
     "validate": "node scripts/validate-setup.js",
     "test:setup": "node scripts/test-setup.js",
-    "dev:safe": "concurrently \"cd server && npm run dev:safe\" \"cd client && npm run dev\""
+    "dev:safe": "concurrently \"cd server && npm run dev:safe\" \"cd client && npm run dev\"",
+    "clean": "rm -rf node_modules client/node_modules server/node_modules client/dist server/dist",
+    "fresh-install": "npm run clean && npm run install:all",
+    "check-deps": "npm outdated && cd client && npm outdated && cd ../server && npm outdated",
+    "update-deps": "npm update && cd client && npm update && cd ../server && npm update",
+    "kill-port": "cd server && npm run kill-port",
+    "format": "cd client && npx prettier --write src/ && cd ../server && npx prettier --write .",
+    "type-check": "cd client && npx tsc --noEmit"
   },
   "keywords": [
     "interview",

@@ -8,8 +8,6 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { InterviewProvider } from "./contexts/InterviewContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
-import TailwindTest from "./TailwindTest";
-
 // Pages
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
@@ -44,7 +42,6 @@ function App() {
               <Routes>
                 {/* Public Routes */}
                 <Route path="/" element={<LandingPage />} />
-                <Route path="/tailwind-test" element={<TailwindTest />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
                 <Route
