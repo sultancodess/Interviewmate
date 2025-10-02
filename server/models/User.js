@@ -125,7 +125,7 @@ const userSchema = new mongoose.Schema({
 
 // Create indexes for better query performance
 userSchema.index({ email: 1 }, { unique: true })
-userSchema.index({ googleId: 1 }, { unique: true, sparse: true })
+// Note: googleId index is already defined in schema with sparse: true
 userSchema.index({ createdAt: -1 })
 userSchema.index({ isActive: 1 })
 userSchema.index({ 'subscription.plan': 1 })

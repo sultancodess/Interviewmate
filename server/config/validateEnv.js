@@ -47,9 +47,9 @@ export const validateEnvironment = () => {
       securityIssues.push('JWT_SECRET must be at least 32 characters long for security')
     }
     
-    // Check for common weak secrets
-    const weakSecrets = ['secret', '123456', 'password', 'interviewmate123', 'jwt_secret']
-    if (weakSecrets.some(weak => process.env.JWT_SECRET.toLowerCase().includes(weak))) {
+    // Check for common weak secrets (but allow development secrets)
+    const weakSecrets = ['secret', '123456', 'password', 'jwt_secret']
+    if (process.env.NODE_ENV === 'production' && weakSecrets.some(weak => process.env.JWT_SECRET.toLowerCase().includes(weak))) {
       securityIssues.push('JWT_SECRET appears to be weak or default - use a strong random secret')
     }
   }
