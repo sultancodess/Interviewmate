@@ -15,7 +15,7 @@ const optionalEnvVars = {
   NODE_ENV: 'development',
   CLIENT_URL: 'http://localhost:5173',
   JWT_EXPIRE: '7d',
-  GEMINI_MODEL: 'gemini-1.5-pro',
+  GEMINI_MODEL: 'gemini-pro',
   GEMINI_TEMPERATURE: '0.7',
   GEMINI_MAX_TOKENS: '2000'
 }

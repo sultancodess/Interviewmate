@@ -19,6 +19,7 @@ import {
   Clock,
   FileText,
   MessageSquare,
+  User,
 } from "lucide-react";
 
 const LandingPage = () => {
@@ -163,42 +164,24 @@ const LandingPage = () => {
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-lg border-b border-gray-200/50 sticky top-0 z-50 shadow-sm">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-50 backdrop-blur-sm bg-white/95">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-            <Link to="/" className="flex items-center group">
+            <Link to="/" className="flex items-center">
               <Logo size="md" showText={true} />
-              <span className="ml-2 px-2 py-1 bg-gradient-to-r from-blue-500 to-purple-500 text-white text-xs font-bold rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                AI
-              </span>
             </Link>
-            
-            {/* Navigation */}
-            <nav className="hidden md:flex items-center space-x-8">
-              <a href="#features" className="text-gray-600 hover:text-blue-600 font-medium transition-colors">
-                Features
-              </a>
-              <a href="#pricing" className="text-gray-600 hover:text-blue-600 font-medium transition-colors">
-                Pricing
-              </a>
-              <a href="#testimonials" className="text-gray-600 hover:text-blue-600 font-medium transition-colors">
-                Reviews
-              </a>
-            </nav>
-            
             <div className="flex items-center space-x-4">
               <Link
                 to="/login"
-                className="text-gray-600 hover:text-gray-900 font-medium transition-colors px-4 py-2 rounded-lg hover:bg-gray-50"
+                className="text-gray-600 hover:text-gray-900 font-medium transition-colors"
               >
                 Sign In
               </Link>
               <Link
                 to="/register"
-                className="group relative bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-blue-500/25 transform hover:scale-105"
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors shadow-sm"
               >
-                <span className="relative z-10">Get Started Free</span>
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-400 rounded-xl blur opacity-0 group-hover:opacity-30 transition-opacity"></div>
+                Get Started Free
               </Link>
             </div>
           </div>
@@ -206,91 +189,57 @@ const LandingPage = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-20 overflow-hidden">
-        {/* Background Effects */}
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%239C92AC" fill-opacity="0.05"%3E%3Ccircle cx="30" cy="30" r="2"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-20"></div>
-        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-blue-600/10 to-purple-600/10"></div>
+      <section className="bg-gradient-to-br from-blue-50 via-white to-purple-50 py-20">
         
-        {/* Floating Elements */}
-        <div className="absolute top-20 left-10 w-20 h-20 bg-blue-500/20 rounded-full blur-xl animate-pulse"></div>
-        <div className="absolute top-40 right-20 w-32 h-32 bg-purple-500/20 rounded-full blur-xl animate-pulse delay-1000"></div>
-        <div className="absolute bottom-20 left-1/4 w-16 h-16 bg-pink-500/20 rounded-full blur-xl animate-pulse delay-2000"></div>
-        
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <div className="mb-8">
-              <span className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500/20 to-purple-500/20 backdrop-blur-sm border border-white/20 text-white rounded-full text-sm font-medium mb-4 shadow-lg">
-                <Zap className="w-4 h-4 mr-2 text-yellow-400" />
-                🚀 AI-Powered Interview Revolution
-                <span className="ml-2 px-2 py-1 bg-green-500 text-xs rounded-full">LIVE</span>
+              <span className="inline-flex items-center px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium mb-4">
+                🚀 AI-Powered Interview Practice Platform
               </span>
             </div>
-            
-            <h1 className="text-6xl md:text-7xl font-black text-white mb-6 leading-tight">
-              <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-                Ace Every
-              </span>
+            <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
+              Master Your Next
+              <span className="text-blue-600"> Interview</span>
               <br />
-              <span className="text-white">Interview</span>
-              <br />
-              <span className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-gray-300 to-gray-500 bg-clip-text text-transparent">
-                with AI Superpowers ⚡
+              <span className="text-3xl md:text-4xl text-gray-600">
+                with AI Confidence
               </span>
             </h1>
-            
-            <p className="text-xl text-gray-300 mb-10 max-w-4xl mx-auto leading-relaxed">
-              🎯 <strong className="text-white">InterviewMate</strong> transforms job seekers into interview champions through 
-              <span className="text-blue-400 font-semibold"> ultra-realistic AI conversations</span>, 
-              <span className="text-purple-400 font-semibold"> instant expert feedback</span>, and 
-              <span className="text-pink-400 font-semibold"> professional performance reports</span>.
+            <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto leading-relaxed">
+              InterviewMate simulates real interviews through voice-based,
+              real-time conversations with AI interviewers. Get dynamic
+              questioning, instant feedback, and professional reports to ace
+              your next interview.
             </p>
             
-            <div className="flex flex-col sm:flex-row gap-6 justify-center mb-12">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
               <Link
                 to="/register"
-                className="group relative inline-flex items-center px-10 py-5 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-2xl hover:from-blue-700 hover:to-purple-700 transition-all duration-300 shadow-2xl hover:shadow-blue-500/25 transform hover:scale-105"
+                className="inline-flex items-center px-8 py-4 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-lg"
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-400 rounded-2xl blur opacity-30 group-hover:opacity-50 transition-opacity"></div>
-                <Play className="relative mr-3 h-6 w-6" />
-                <span className="relative">Start Free Practice</span>
-                <ArrowRight className="relative ml-3 h-6 w-6 group-hover:translate-x-1 transition-transform" />
+                <Play className="mr-2 h-5 w-5" />
+                Start Free Practice
+                <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
-              
-              <button className="group inline-flex items-center px-10 py-5 border-2 border-white/30 text-white font-bold rounded-2xl hover:bg-white/10 backdrop-blur-sm transition-all duration-300 hover:border-white/50">
-                <MessageSquare className="mr-3 h-6 w-6" />
-                <span>Watch Demo</span>
-                <div className="ml-3 w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+              <button className="inline-flex items-center px-8 py-4 border-2 border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-colors">
+                <MessageSquare className="mr-2 h-5 w-5" />
+                Watch Demo
               </button>
             </div>
             
-            {/* Stats Bar */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-3xl mx-auto mb-8">
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-                <div className="text-3xl font-bold text-white mb-2">10K+</div>
-                <div className="text-gray-300 text-sm">Interviews Practiced</div>
-              </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-                <div className="text-3xl font-bold text-white mb-2">95%</div>
-                <div className="text-gray-300 text-sm">Success Rate</div>
-              </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-                <div className="text-3xl font-bold text-white mb-2">4.9★</div>
-                <div className="text-gray-300 text-sm">User Rating</div>
-              </div>
-            </div>
-            
-            <div className="flex flex-col sm:flex-row items-center justify-center space-y-3 sm:space-y-0 sm:space-x-8 text-sm text-gray-300">
-              <span className="flex items-center bg-green-500/20 px-4 py-2 rounded-full border border-green-500/30">
-                <CheckCircle className="w-4 h-4 text-green-400 mr-2" />
+            <div className="flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-6 text-sm text-gray-500">
+              <span className="flex items-center">
+                <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
                 No credit card required
               </span>
-              <span className="flex items-center bg-blue-500/20 px-4 py-2 rounded-full border border-blue-500/30">
-                <CheckCircle className="w-4 h-4 text-blue-400 mr-2" />
+              <span className="flex items-center">
+                <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
                 30 free VAPI minutes
               </span>
-              <span className="flex items-center bg-purple-500/20 px-4 py-2 rounded-full border border-purple-500/30">
-                <CheckCircle className="w-4 h-4 text-purple-400 mr-2" />
-                Unlimited practice
+              <span className="flex items-center">
+                <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+                Unlimited Web Speech API
               </span>
             </div>
           </div>
@@ -300,7 +249,9 @@ const LandingPage = () => {
       {/* Features Section */}
       <section className="py-24 bg-gradient-to-b from-gray-50 to-white relative overflow-hidden">
         {/* Background Pattern */}
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"%3E%3Cpath d="M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z" fill="%23f1f5f9" fill-opacity="0.4" fill-rule="evenodd"/%3E%3C/svg%3E')] opacity-30"></div>
+        <div className="absolute inset-0 opacity-30" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7z' fill='%23f1f5f9' fill-opacity='0.4'/%3E%3C/svg%3E")`
+        }}></div>
         
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-20">
@@ -735,7 +686,9 @@ const LandingPage = () => {
       {/* Footer */}
       <footer className="bg-gradient-to-br from-gray-900 via-slate-900 to-black text-white py-16 relative overflow-hidden">
         {/* Background Effects */}
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23374151" fill-opacity="0.1"%3E%3Ccircle cx="30" cy="30" r="1"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-50"></div>
+        <div className="absolute inset-0 opacity-50" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23374151' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+        }}></div>
         <div className="absolute top-0 left-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl"></div>
         <div className="absolute bottom-0 right-0 w-40 h-40 bg-purple-500/10 rounded-full blur-3xl"></div>
         

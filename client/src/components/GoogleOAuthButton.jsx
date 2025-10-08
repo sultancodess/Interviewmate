@@ -2,6 +2,12 @@ import React, { useEffect, useState, useRef } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { Loader } from "lucide-react";
 import toast from "react-hot-toast";
+import {
+  initializeGoogleAuth,
+  handleCOOPError,
+  renderGoogleButton,
+  promptGoogleSignIn,
+} from "../utils/googleAuth";
 
 const GoogleOAuthButton = ({
   onSuccess,
@@ -57,8 +63,8 @@ const GoogleOAuthButton = ({
           use_fedcm_for_prompt: false,
           itp_support: true,
           // Add COOP-friendly settings
-          ux_mode: 'popup', // Use popup mode instead of redirect
-          context: 'signin'
+          ux_mode: "popup", // Use popup mode instead of redirect
+          context: "signin",
         });
       } catch (error) {
         console.error("Failed to initialize Google Identity Services:", error);
@@ -118,36 +124,38 @@ const GoogleOAuthButton = ({
     try {
       // Use One Tap prompt with COOP-friendly settings
       window.google.accounts.id.prompt((notification) => {
-        console.log('Google One Tap notification:', notification)
-        
+        console.log("Google One Tap notification:", notification);
+
         if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
           // Fallback to button rendering
-          setShowGoogleButton(true)
-          
+          setShowGoogleButton(true);
+
           setTimeout(() => {
-            const buttonContainer = document.getElementById('google-signin-button')
+            const buttonContainer = document.getElementById(
+              "google-signin-button"
+            );
             if (buttonContainer) {
-              buttonContainer.innerHTML = ''
-              
+              buttonContainer.innerHTML = "";
+
               try {
                 window.google.accounts.id.renderButton(buttonContainer, {
-                  theme: 'outline',
-                  size: 'large',
+                  theme: "outline",
+                  size: "large",
                   width: 300,
-                  text: 'continue_with',
-                  shape: 'rectangular',
-                  logo_alignment: 'left',
-                  type: 'standard'
-                })
+                  text: "continue_with",
+                  shape: "rectangular",
+                  logo_alignment: "left",
+                  type: "standard",
+                });
               } catch (renderError) {
-                console.error('Button render error:', renderError)
-                setShowGoogleButton(false)
-                toast.error('Google sign-in temporarily unavailable')
+                console.error("Button render error:", renderError);
+                setShowGoogleButton(false);
+                toast.error("Google sign-in temporarily unavailable");
               }
             }
-          }, 100)
+          }, 100);
         }
-      })
+      });
     } catch (error) {
       console.error("Google sign-in error:", error);
       toast.error("Google sign-in failed");

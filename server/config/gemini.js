@@ -20,7 +20,7 @@ class GeminiService {
 
       this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
       this.model = this.genAI.getGenerativeModel({ 
-        model: process.env.GEMINI_MODEL || 'gemini-1.5-pro',
+        model: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
         generationConfig: {
           temperature: parseFloat(process.env.GEMINI_TEMPERATURE) || 0.7,
           topK: 40,
@@ -215,7 +215,7 @@ Be constructive, specific, and actionable in your feedback. Focus on both streng
       detailedFeedback: evaluation.detailedFeedback || 'The candidate demonstrated good interview skills with room for improvement in providing more specific examples and demonstrating deeper knowledge in key areas.',
       badges: Array.isArray(evaluation.badges) ? evaluation.badges.slice(0, 6) : [],
       evaluatedAt: new Date(),
-      evaluationModel: 'gemini-1.5-pro'
+      evaluationModel: 'gemini-pro'
     }
 
     // Auto-generate badges based on scores
@@ -388,11 +388,13 @@ Example: [{"question": "What is your experience with...", "type": "technical"}]
       if (!this.isInitialized) {
         const initialized = this.initialize()
         if (!initialized) {
+          console.log('⚠️ Gemini AI not initialized - using fallback evaluation')
           return false
         }
       }
 
       if (!this.model) {
+        console.log('⚠️ Gemini model not available - using fallback evaluation')
         return false
       }
 
@@ -411,11 +413,13 @@ Example: [{"question": "What is your experience with...", "type": "technical"}]
         return false
       }
 
-      const result = await this.model.generateContent('Test')
+      // Simple test with minimal content
+      const result = await this.model.generateContent('Hello')
       const response = result.response
       const text = response.text()
       
       this.requestCount++
+      console.log('✅ Gemini AI connection verified successfully')
       return text.length > 0
     } catch (error) {
       console.error('❌ Gemini connection test failed:', error.message)
@@ -423,7 +427,10 @@ Example: [{"question": "What is your experience with...", "type": "technical"}]
       this.lastErrorTime = Date.now()
       
       // Handle specific error types with better messaging
-      if (error.message.includes('overloaded') || error.message.includes('503')) {
+      if (error.message.includes('404') || error.message.includes('not found')) {
+        console.warn('⚠️ Gemini model not available - using fallback evaluation')
+        console.warn('💡 Try updating your Google AI SDK or check model availability')
+      } else if (error.message.includes('overloaded') || error.message.includes('503')) {
         console.warn('⚠️ Gemini AI is temporarily overloaded - will use fallback evaluation')
       } else if (error.message.includes('quota') || error.message.includes('429')) {
         console.warn('⚠️ Gemini AI quota exceeded - using fallback mode')
