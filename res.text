@@ -1,0 +1,33 @@
+\section{Projects}
+\vspace{-5pt}
+
+\resumeProjectHeading
+{\textbf{Parsona.dev — AI-Powered Personal Branding Platform} 
+\hfill 
+\href{https://github.com/sultancodess/parsona}{\textbf{GitHub}} $|$ 
+\href{https://parsona.dev}{\textbf{Live}}}
+
+{\textbf{Tech Stack:} React.js, Vite, Tailwind CSS, Node.js, Express, MongoDB, Google Gemini API, OAuth2, Razorpay, Recharts, Web Speech API.}
+\resumeItemListStart
+\resumeItem{Engineered a full-stack SaaS automating content creation and persona scoring for 1K+ users with 99.5\% uptime.}
+\resumeItem{Integrated Google Gemini API to generate personalized posts, reducing content creation time by ~85\% and increasing engagement by 40\%.}
+\resumeItem{Implemented secure JWT + OAuth2 authentication for Google/LinkedIn/Twitter with 95\% onboarding completion; integrated Razorpay payments.}
+\resumeItem{Built a real-time analytics dashboard using Recharts to track engagement, trends, and A/B experiments.}
+\resumeItem{Deployed frontend on Vercel and backend on Render with CI/CD, automated backups, health checks, and scalable infrastructure.}
+\resumeItemListEnd
+
+\vspace{4pt}
+\resumeProjectHeading
+{\textbf{InterviewMate.dev — AI Mock Interview Platform (voice & analytics)} 
+\hfill 
+\href{https://github.com/sultancodess/Interviewmate}{\textbf{Code Link}} $|$ 
+\href{https://interviewmatebeta.vercel.app}{\textbf{Live Link}}}
+
+{\textbf{Tech Stack:} React.js, Tailwind CSS, Node.js, Express, MongoDB, Redis, WebSockets, Google Gemini API, Web Speech API, Puppeteer, Docker, CI/CD.}
+\resumeItemListStart
+\resumeItem{Developed an AI mock interview platform with real-time voice Q\&A for 10K+ users and 500+ concurrent sessions at 99.9\% uptime.}
+\resumeItem{Implemented speech-to-text and text-to-speech using Web Speech API and Gemini AI for dynamic question generation and scoring.}
+\resumeItem{Engineered AI evaluation pipeline generating structured feedback, performance metrics, and downloadable PDF reports via Puppeteer.}
+\resumeItem{Optimized backend with Redis caching, rate limiting, and async job processing, reducing API response times by ~60\%.}
+\resumeItem{Containerized services and automated CI/CD with Docker + GitHub Actions; hosted frontend on Vercel and backend on Render.}
+\resumeItemListEnd
